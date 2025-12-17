@@ -1,0 +1,95 @@
+import axios from 'axios';
+import {
+  AiGenerateRequest,
+  AiPostDto,
+  AutoPostRequest,
+  LoginRequest,
+  RegisterRequest,
+  VkAccount,
+  VkGroup,
+} from './types';
+import { mockAccounts, mockAiPost, mockGroups, mockLogs } from './mockData';
+
+const api = axios.create({
+  baseURL: import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8080',
+});
+
+export const authApi = {
+  login: async (payload: LoginRequest) => {
+    await api.post('/login', payload);
+    return { ok: true };
+  },
+  register: async (payload: RegisterRequest) => {
+    await api.post('/register', payload);
+    return { ok: true };
+  },
+};
+
+export const accountsApi = {
+  async list(): Promise<VkAccount[]> {
+    try {
+      const { data } = await api.get<VkAccount[]>('/vk-accounts');
+      return data;
+    } catch (error) {
+      console.warn('Falling back to mock accounts', error);
+      return mockAccounts;
+    }
+  },
+  async create(payload: Pick<VkAccount, 'alias' | 'token'>): Promise<VkAccount> {
+    try {
+      const { data } = await api.post<VkAccount>('/vk-accounts', payload);
+      return data;
+    } catch (error) {
+      console.warn('Mock account creation', error);
+      return {
+        id: Date.now(),
+        username: 'vk.com/new-account',
+        avatar: 'https://placehold.co/100x100',
+        status: 'ACTIVE',
+        lastSyncAt: new Date().toISOString(),
+        groupsCount: 0,
+        ...payload,
+      };
+    }
+  },
+  async groups(accountId: number): Promise<VkGroup[]> {
+    try {
+      const { data } = await api.get<VkGroup[]>(`/vk-accounts/${accountId}/groups`);
+      return data;
+    } catch (error) {
+      console.warn('Using mock VK groups', error);
+      return mockGroups;
+    }
+  },
+};
+
+export const autopostApi = {
+  async update(payload: AutoPostRequest) {
+    await api.post('/autopost', payload);
+    return payload;
+  },
+};
+
+export const aiApi = {
+  async generate(payload: AiGenerateRequest): Promise<AiPostDto> {
+    try {
+      const { data } = await api.post<AiPostDto>('/ai/post', payload);
+      return data;
+    } catch (error) {
+      console.warn('AI generation mocked', error);
+      return mockAiPost;
+    }
+  },
+};
+
+export const logsApi = {
+  async list() {
+    try {
+      const { data } = await api.get('/logs');
+      return data;
+    } catch (error) {
+      console.warn('Mock log records', error);
+      return mockLogs;
+    }
+  },
+};
