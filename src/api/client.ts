@@ -1,4 +1,4 @@
-import axios from 'axios';
+import axios, { AxiosHeaders } from 'axios';
 import {
   AiGenerateRequest,
   AiPostDto,
@@ -9,6 +9,13 @@ import {
   VkGroup,
 } from './types';
 import { mockAccounts, mockAiPost, mockGroups, mockLogs } from './mockData';
+
+const defaultHeaders = new AxiosHeaders();
+const apiToken = import.meta.env.VITE_API_TOKEN;
+
+if (apiToken) {
+  defaultHeaders.set('Authorization', `Bearer ${apiToken}`);
+}
 
 const AUTH_STORAGE_KEY = 'vkmon-auth';
 
@@ -45,10 +52,12 @@ api.interceptors.request.use((config) => {
   const credentials = getAuthCredentials();
   if (credentials) {
     const token = btoa(`${credentials.username}:${credentials.password}`);
-    config.headers = {
-      ...config.headers,
-      Authorization: `Basic ${token}`,
-    };
+    if (!config.headers) {
+      config.headers = new AxiosHeaders();
+    } else if (!(config.headers instanceof AxiosHeaders)) {
+      config.headers = new AxiosHeaders(config.headers);
+    }
+    config.headers.set('Authorization', `Basic ${token}`);
   }
   return config;
 });
