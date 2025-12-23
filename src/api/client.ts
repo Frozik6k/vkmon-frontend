@@ -10,13 +10,53 @@ import {
 } from './types';
 import { mockAccounts, mockAiPost, mockGroups, mockLogs } from './mockData';
 
+const AUTH_STORAGE_KEY = 'vkmon-auth';
+
+type AuthCredentials = {
+  username: string;
+  password: string;
+};
+
+const setAuthCredentials = (credentials: AuthCredentials) => {
+  localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(credentials));
+};
+
+const getAuthCredentials = (): AuthCredentials | null => {
+  const raw = localStorage.getItem(AUTH_STORAGE_KEY);
+  if (!raw) {
+    return null;
+  }
+  try {
+    const parsed = JSON.parse(raw) as AuthCredentials;
+    if (parsed?.username && parsed?.password) {
+      return parsed;
+    }
+  } catch (error) {
+    console.warn('Unable to read stored credentials', error);
+  }
+  return null;
+};
+
 const api = axios.create({
   baseURL: import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8080',
+});
+
+api.interceptors.request.use((config) => {
+  const credentials = getAuthCredentials();
+  if (credentials) {
+    const token = btoa(`${credentials.username}:${credentials.password}`);
+    config.headers = {
+      ...config.headers,
+      Authorization: `Basic ${token}`,
+    };
+  }
+  return config;
 });
 
 export const authApi = {
   login: async (payload: LoginRequest) => {
     await api.post('/login', payload);
+    setAuthCredentials(payload);
     return { ok: true };
   },
   register: async (payload: RegisterRequest) => {
