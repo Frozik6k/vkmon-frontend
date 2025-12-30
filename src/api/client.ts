@@ -49,6 +49,10 @@ const api = axios.create({
 });
 
 api.interceptors.request.use((config) => {
+  const requestUrl = typeof config.url === 'string' ? config.url : '';
+  if (requestUrl === '/login' || requestUrl === '/register') {
+    return config;
+  }
   const credentials = getAuthCredentials();
   if (credentials) {
     const token = btoa(`${credentials.username}:${credentials.password}`);
