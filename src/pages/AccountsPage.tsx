@@ -7,7 +7,7 @@ export default function AccountsPage() {
   const queryClient = useQueryClient();
   const { data: accounts = [] } = useQuery({ queryKey: ['accounts'], queryFn: accountsApi.list });
   const [selectedId, setSelectedId] = useState<number | null>(accounts[0]?.id ?? null);
-  const { data: groups = [] } = useQuery({
+  const { data: groups = [], refetch: refetchGroups } = useQuery({
     queryKey: ['groups', selectedId],
     queryFn: () => accountsApi.groups(selectedId ?? 0),
     enabled: Boolean(selectedId),
@@ -92,7 +92,7 @@ export default function AccountsPage() {
       return;
     }
     setIsEditingGroups(true);
-    await refetchAvailableGroups();
+    await Promise.all([refetchGroups(), refetchAvailableGroups()]);
   };
 
   return (
