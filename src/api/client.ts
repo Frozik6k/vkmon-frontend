@@ -8,7 +8,7 @@ import {
   VkAccount,
   VkGroup,
 } from './types';
-import { mockAccounts, mockAiPost, mockGroups, mockLogs } from './mockData';
+import { mockAccounts, mockAiPost, mockAvailableGroups, mockGroups, mockLogs } from './mockData';
 
 const defaultHeaders = new AxiosHeaders();
 const apiToken = import.meta.env.VITE_API_TOKEN;
@@ -113,6 +113,21 @@ export const accountsApi = {
       console.warn('Using mock VK groups', error);
       return mockGroups;
     }
+  },
+  async availableGroups(accountId: number): Promise<VkGroup[]> {
+    try {
+      const { data } = await api.get<VkGroup[]>(`/vk-accounts/${accountId}/groups/available`);
+      return data;
+    } catch (error) {
+      console.warn('Using mock VK available groups', error);
+      return mockAvailableGroups;
+    }
+  },
+  async syncGroups(accountId: number, groupIds: number[]): Promise<{ groupIds: number[] }> {
+    const { data } = await api.post<{ groupIds: number[] }>(`/vk-accounts/${accountId}/groups/sync`, {
+      groupIds,
+    });
+    return data;
   },
 };
 

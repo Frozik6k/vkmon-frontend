@@ -12,12 +12,27 @@ export default function AccountsPage() {
     queryFn: () => accountsApi.groups(selectedId ?? 0),
     enabled: Boolean(selectedId),
   });
+  const { data: availableGroups = [] } = useQuery({
+    queryKey: ['available-groups', selectedId],
+    queryFn: () => accountsApi.availableGroups(selectedId ?? 0),
+    enabled: Boolean(selectedId),
+  });
+  const [selectedGroupIds, setSelectedGroupIds] = useState<number[]>([]);
 
   useEffect(() => {
     if (!selectedId && accounts.length > 0) {
       setSelectedId(accounts[0].id);
     }
   }, [accounts, selectedId]);
+  
+  useEffect(() => {
+    if (!selectedId) {
+      setSelectedGroupIds([]);
+      return;
+    }
+    setSelectedGroupIds(groups.map((group) => group.vkGroupId));
+  }, [groups, selectedId]);
+
 
   const mutation = useMutation({
     mutationFn: (payload: Pick<VkAccount, 'alias' | 'token'>) => accountsApi.create(payload),
@@ -26,6 +41,17 @@ export default function AccountsPage() {
       setSelectedId(newAccount.id);
     },
   });
+  
+  const syncGroupsMutation = useMutation({
+    mutationFn: (payload: { accountId: number; groupIds: number[] }) =>
+      accountsApi.syncGroups(payload.accountId, payload.groupIds),
+    onSuccess: (_, payload) => {
+      queryClient.setQueryData(['groups', payload.accountId], () =>
+        availableGroups.filter((group) => payload.groupIds.includes(group.vkGroupId)),
+      );
+    },
+  });
+
 
   const selectedAccount = useMemo(() => accounts.find((acc) => acc.id === selectedId), [accounts, selectedId]);
 
@@ -36,6 +62,19 @@ export default function AccountsPage() {
     const token = String(formData.get('token'));
     mutation.mutate({ alias, token });
     event.currentTarget.reset();
+  };
+
+  const handleGroupToggle = (groupId: number) => {
+    setSelectedGroupIds((prev) =>
+      prev.includes(groupId) ? prev.filter((id) => id !== groupId) : [...prev, groupId],
+    );
+  };
+
+  const handleSyncGroups = () => {
+    if (!selectedId) {
+      return;
+    }
+    syncGroupsMutation.mutate({ accountId: selectedId, groupIds: selectedGroupIds });
   };
 
   return (
@@ -101,32 +140,81 @@ export default function AccountsPage() {
       </div>
 
       {selectedAccount && (
-        <div className="card" style={{ marginTop: 16 }}>
-          <div className="page-header" style={{ marginBottom: 12 }}>
-            <h3>Группы аккаунта {selectedAccount.alias}</h3>
-            <span className="badge">AgeLimits + статус</span>
-          </div>
-          <table className="table">
-            <thead>
-              <tr>
-                <th>Группа</th>
-                <th>Возраст</th>
-                <th>Активность</th>
-                <th>Последний пост</th>
-              </tr>
-            </thead>
-            <tbody>
-              {groups.map((group) => (
-                <tr key={group.vkGroupId}>
-                  <td>{group.name}</td>
-                  <td>{group.ageLimits}</td>
-                  <td>{group.isEnabled ? 'Включена' : 'Отключена'}</td>
-                  <td>{group.lastPostAt ? new Date(group.lastPostAt).toLocaleString('ru-RU') : '—'}</td>
+        <>
+          <div className="card" style={{ marginTop: 16 }}>
+            <div className="page-header" style={{ marginBottom: 12 }}>
+              <div>
+                <h3>Обновление групп</h3>
+                <p style={{ margin: 0, color: '#475569' }}>
+                  Отметьте группы для добавления/удаления в аккаунте {selectedAccount.alias}.
+                </p>
+              </div>
+              <button
+                className="btn btn-primary"
+                type="button"
+                onClick={handleSyncGroups}
+                disabled={syncGroupsMutation.isPending}
+              >
+                {syncGroupsMutation.isPending ? 'Обновляем…' : 'Обновить'}
+              </button>
+            </div>
+            <table className="table">
+              <thead>
+                <tr>
+                  <th></th>
+                  <th>Группа</th>
+                  <th>Возраст</th>
+                  <th>Активность</th>
+                  <th>Последний пост</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody>
+                {availableGroups.map((group) => (
+                  <tr key={group.vkGroupId}>
+                    <td>
+                      <input
+                        type="checkbox"
+                        checked={selectedGroupIds.includes(group.vkGroupId)}
+                        onChange={() => handleGroupToggle(group.vkGroupId)}
+                      />
+                    </td>
+                    <td>{group.name}</td>
+                    <td>{group.ageLimits}</td>
+                    <td>{group.isEnabled ? 'Включена' : 'Отключена'}</td>
+                    <td>{group.lastPostAt ? new Date(group.lastPostAt).toLocaleString('ru-RU') : '—'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          <div className="card" style={{ marginTop: 16 }}>
+            <div className="page-header" style={{ marginBottom: 12 }}>
+              <h3>Группы аккаунта {selectedAccount.alias}</h3>
+              <span className="badge">AgeLimits + статус</span>
+            </div>
+            <table className="table">
+              <thead>
+                <tr>
+                  <th>Группа</th>
+                  <th>Возраст</th>
+                  <th>Активность</th>
+                  <th>Последний пост</th>
+                </tr>
+              </thead>
+              <tbody>
+                {groups.map((group) => (
+                  <tr key={group.vkGroupId}>
+                    <td>{group.name}</td>
+                    <td>{group.ageLimits}</td>
+                    <td>{group.isEnabled ? 'Включена' : 'Отключена'}</td>
+                    <td>{group.lastPostAt ? new Date(group.lastPostAt).toLocaleString('ru-RU') : '—'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </>
       )}
     </div>
   );

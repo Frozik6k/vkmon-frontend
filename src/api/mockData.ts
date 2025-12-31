@@ -44,6 +44,37 @@ export const mockGroups: VkGroup[] = [
   },
 ];
 
+export const mockAvailableGroups: VkGroup[] = [
+  ...mockGroups,
+  {
+    vkGroupId: 3,
+    name: 'VKmon — Кейсы клиентов',
+    avatar: 'https://placehold.co/64x64',
+    ageLimits: 'NONE',
+    isEnabled: true,
+    lastPostAt: new Date(Date.now() - 1000 * 60 * 60 * 6).toISOString(),
+    fixedPost: 0,
+  },
+  {
+    vkGroupId: 4,
+    name: 'HR & команда VK',
+    avatar: 'https://placehold.co/64x64',
+    ageLimits: 'SIXTEEN',
+    isEnabled: false,
+    lastPostAt: new Date(Date.now() - 1000 * 60 * 60 * 40).toISOString(),
+    fixedPost: 112,
+  },
+  {
+    vkGroupId: 5,
+    name: 'Внутренние новости продукта',
+    avatar: 'https://placehold.co/64x64',
+    ageLimits: 'EIGHTEEN',
+    isEnabled: true,
+    lastPostAt: undefined,
+    fixedPost: 0,
+  },
+];
+
 export const mockAiPost: AiPostDto = {
   post: 'Готовый черновик поста с хештегами #vkmon #smm #autopost',
   imageUrl: 'https://placehold.co/600x300',
