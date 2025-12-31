@@ -14,7 +14,6 @@ export default function AccountsPage() {
   });
   const {
     data: availableGroups = [],
-    refetch: refetchAvailableGroups,
     isFetching: isFetchingAvailableGroups,
   } = useQuery({
     queryKey: ['available-groups', selectedId],
@@ -92,7 +91,16 @@ export default function AccountsPage() {
       return;
     }
     setIsEditingGroups(true);
-    await Promise.all([refetchGroups(), refetchAvailableGroups()]);
+    await Promise.all([
+      queryClient.fetchQuery({
+        queryKey: ['groups', selectedId],
+        queryFn: () => accountsApi.groups(selectedId),
+      }),
+      queryClient.fetchQuery({
+        queryKey: ['available-groups', selectedId],
+        queryFn: () => accountsApi.availableGroups(selectedId),
+      }),
+    ]);
   };
 
   return (
