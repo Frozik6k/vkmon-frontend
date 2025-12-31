@@ -1,106 +1,20 @@
 diff --git a/src/pages/AccountsPage.tsx b/src/pages/AccountsPage.tsx
-index 40ccddcbaa46c1635ad975206183bc78892957bb..5889678e906e4fa0fa657a80a84ad2df9c236e07 100644
+index 5889678e906e4fa0fa657a80a84ad2df9c236e07..fbbcb8698e2e97d165c590081c59f4b5d2593fca 100644
 --- a/src/pages/AccountsPage.tsx
 +++ b/src/pages/AccountsPage.tsx
-@@ -1,104 +1,122 @@
- import { FormEvent, useEffect, useMemo, useState } from 'react';
- import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
- import { accountsApi } from '../api/client';
- import type { VkAccount } from '../api/types';
- 
- export default function AccountsPage() {
-   const queryClient = useQueryClient();
-   const { data: accounts = [] } = useQuery({ queryKey: ['accounts'], queryFn: accountsApi.list });
-   const [selectedId, setSelectedId] = useState<number | null>(accounts[0]?.id ?? null);
-   const { data: groups = [] } = useQuery({
-     queryKey: ['groups', selectedId],
-     queryFn: () => accountsApi.groups(selectedId ?? 0),
-     enabled: Boolean(selectedId),
-   });
--  const { data: availableGroups = [] } = useQuery({
-+  const {
-+    data: availableGroups = [],
-+    refetch: refetchAvailableGroups,
-+    isFetching: isFetchingAvailableGroups,
-+  } = useQuery({
-     queryKey: ['available-groups', selectedId],
-     queryFn: () => accountsApi.availableGroups(selectedId ?? 0),
-     enabled: Boolean(selectedId),
-   });
-   const [selectedGroupIds, setSelectedGroupIds] = useState<number[]>([]);
-+  const [isEditingGroups, setIsEditingGroups] = useState(false);
- 
-   useEffect(() => {
-     if (!selectedId && accounts.length > 0) {
-       setSelectedId(accounts[0].id);
-     }
-   }, [accounts, selectedId]);
-   
-   useEffect(() => {
-     if (!selectedId) {
-       setSelectedGroupIds([]);
-       return;
-     }
-     setSelectedGroupIds(groups.map((group) => group.vkGroupId));
-   }, [groups, selectedId]);
- 
-+  useEffect(() => {
-+    setIsEditingGroups(false);
-+  }, [selectedId]);
-+
- 
-   const mutation = useMutation({
-     mutationFn: (payload: Pick<VkAccount, 'alias' | 'token'>) => accountsApi.create(payload),
-     onSuccess: (newAccount) => {
-       queryClient.setQueryData<VkAccount[]>(['accounts'], (old = []) => [...old, newAccount]);
-       setSelectedId(newAccount.id);
-     },
-   });
-   
-   const syncGroupsMutation = useMutation({
-     mutationFn: (payload: { accountId: number; groupIds: number[] }) =>
-       accountsApi.syncGroups(payload.accountId, payload.groupIds),
-     onSuccess: (_, payload) => {
-       queryClient.setQueryData(['groups', payload.accountId], () =>
-         availableGroups.filter((group) => payload.groupIds.includes(group.vkGroupId)),
-       );
-+      setIsEditingGroups(false);
-     },
-   });
- 
- 
-   const selectedAccount = useMemo(() => accounts.find((acc) => acc.id === selectedId), [accounts, selectedId]);
- 
-   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
-     event.preventDefault();
-     const formData = new FormData(event.currentTarget);
-     const alias = String(formData.get('alias'));
-     const token = String(formData.get('token'));
-     mutation.mutate({ alias, token });
-     event.currentTarget.reset();
-   };
- 
-   const handleGroupToggle = (groupId: number) => {
-     setSelectedGroupIds((prev) =>
-       prev.includes(groupId) ? prev.filter((id) => id !== groupId) : [...prev, groupId],
-     );
-   };
- 
-   const handleSyncGroups = () => {
-     if (!selectedId) {
-       return;
+@@ -86,71 +86,92 @@ export default function AccountsPage() {
      }
      syncGroupsMutation.mutate({ accountId: selectedId, groupIds: selectedGroupIds });
    };
  
-+  const handleStartEditingGroups = async () => {
-+    if (!selectedId) {
-+      return;
-+    }
-+    setIsEditingGroups(true);
-+    await refetchAvailableGroups();
-+  };
-+
+   const handleStartEditingGroups = async () => {
+     if (!selectedId) {
+       return;
+     }
+     setIsEditingGroups(true);
+     await refetchAvailableGroups();
+   };
+ 
    return (
      <div>
        <div className="page-header">
@@ -114,6 +28,7 @@ index 40ccddcbaa46c1635ad975206183bc78892957bb..5889678e906e4fa0fa657a80a84ad2df
            <table className="table">
              <thead>
                <tr>
++                <th></th>
                  <th>Alias</th>
                  <th>Статус</th>
                  <th>Группы</th>
@@ -122,11 +37,49 @@ index 40ccddcbaa46c1635ad975206183bc78892957bb..5889678e906e4fa0fa657a80a84ad2df
              </thead>
              <tbody>
                {accounts.map((account) => (
-                 <tr key={account.id}>
+-                <tr key={account.id}>
++                <tr
++                  key={account.id}
++                  className={selectedId === account.id ? 'table-row-selected' : undefined}
++                  onClick={() => setSelectedId(account.id)}
++                  style={{ cursor: 'pointer' }}
++                >
++                  <td>
++                    <input
++                      type="radio"
++                      name="selected-account"
++                      checked={selectedId === account.id}
++                      onChange={() => setSelectedId(account.id)}
++                      onClick={(event) => event.stopPropagation()}
++                    />
++                  </td>
                    <td>
                      <div style={{ fontWeight: 700 }}>{account.alias}</div>
                      <div style={{ color: '#475569', fontSize: 12 }}>{account.username}</div>
-@@ -122,100 +140,88 @@ export default function AccountsPage() {
+                   </td>
+                   <td>
+                     <span className={`status-pill status-${account.status.toLowerCase()}`}>
+                       {account.status}
+                     </span>
+                   </td>
+                   <td>{account.groupsCount}</td>
+                   <td>
+-                    <button className="btn btn-ghost" onClick={() => setSelectedId(account.id)}>
++                    <button
++                      className="btn btn-ghost"
++                      onClick={(event) => {
++                        event.stopPropagation();
++                        setSelectedId(account.id);
++                      }}
++                    >
+                       Подробнее
+                     </button>
+                   </td>
+                 </tr>
+               ))}
+             </tbody>
+           </table>
+         </div>
  
          <div className="card">
            <h3>Добавить аккаунт</h3>
@@ -144,120 +97,3 @@ index 40ccddcbaa46c1635ad975206183bc78892957bb..5889678e906e4fa0fa657a80a84ad2df
                {mutation.isPending ? 'Создаем…' : 'Создать'}
              </button>
            </form>
-         </div>
-       </div>
- 
-       {selectedAccount && (
-         <>
-           <div className="card" style={{ marginTop: 16 }}>
-             <div className="page-header" style={{ marginBottom: 12 }}>
-               <div>
--                <h3>Обновление групп</h3>
-+                <h3>Группы аккаунта {selectedAccount.alias}</h3>
-                 <p style={{ margin: 0, color: '#475569' }}>
--                  Отметьте группы для добавления/удаления в аккаунте {selectedAccount.alias}.
-+                  {isEditingGroups
-+                    ? 'Отметьте группы для добавления/удаления в аккаунте.'
-+                    : 'Добавленные группы для выбранного аккаунта.'}
-                 </p>
-               </div>
--              <button
--                className="btn btn-primary"
--                type="button"
--                onClick={handleSyncGroups}
--                disabled={syncGroupsMutation.isPending}
--              >
--                {syncGroupsMutation.isPending ? 'Обновляем…' : 'Обновить'}
--              </button>
--            </div>
--            <table className="table">
--              <thead>
--                <tr>
--                  <th></th>
--                  <th>Группа</th>
--                  <th>Возраст</th>
--                  <th>Активность</th>
--                  <th>Последний пост</th>
--                </tr>
--              </thead>
--              <tbody>
--                {availableGroups.map((group) => (
--                  <tr key={group.vkGroupId}>
--                    <td>
--                      <input
--                        type="checkbox"
--                        checked={selectedGroupIds.includes(group.vkGroupId)}
--                        onChange={() => handleGroupToggle(group.vkGroupId)}
--                      />
--                    </td>
--                    <td>{group.name}</td>
--                    <td>{group.ageLimits}</td>
--                    <td>{group.isEnabled ? 'Включена' : 'Отключена'}</td>
--                    <td>{group.lastPostAt ? new Date(group.lastPostAt).toLocaleString('ru-RU') : '—'}</td>
--                  </tr>
--                ))}
--              </tbody>
--            </table>
--          </div>
--
--          <div className="card" style={{ marginTop: 16 }}>
--            <div className="page-header" style={{ marginBottom: 12 }}>
--              <h3>Группы аккаунта {selectedAccount.alias}</h3>
--              <span className="badge">AgeLimits + статус</span>
-+              {isEditingGroups ? (
-+                <button
-+                  className="btn btn-primary"
-+                  type="button"
-+                  onClick={handleSyncGroups}
-+                  disabled={syncGroupsMutation.isPending || isFetchingAvailableGroups}
-+                >
-+                  {syncGroupsMutation.isPending ? 'Сохраняем…' : 'Сохранить'}
-+                </button>
-+              ) : (
-+                <button
-+                  className="btn btn-primary"
-+                  type="button"
-+                  onClick={handleStartEditingGroups}
-+                  disabled={isFetchingAvailableGroups}
-+                >
-+                  {isFetchingAvailableGroups ? 'Обновляем…' : 'Обновить'}
-+                </button>
-+              )}
-             </div>
-             <table className="table">
-               <thead>
-                 <tr>
-+                  {isEditingGroups && <th></th>}
-                   <th>Группа</th>
-                   <th>Возраст</th>
-                   <th>Активность</th>
-                   <th>Последний пост</th>
-                 </tr>
-               </thead>
-               <tbody>
--                {groups.map((group) => (
-+                {(isEditingGroups ? availableGroups : groups).map((group) => (
-                   <tr key={group.vkGroupId}>
-+                    {isEditingGroups && (
-+                      <td>
-+                        <input
-+                          type="checkbox"
-+                          checked={selectedGroupIds.includes(group.vkGroupId)}
-+                          onChange={() => handleGroupToggle(group.vkGroupId)}
-+                        />
-+                      </td>
-+                    )}
-                     <td>{group.name}</td>
-                     <td>{group.ageLimits}</td>
-                     <td>{group.isEnabled ? 'Включена' : 'Отключена'}</td>
-                     <td>{group.lastPostAt ? new Date(group.lastPostAt).toLocaleString('ru-RU') : '—'}</td>
-                   </tr>
-                 ))}
-               </tbody>
-             </table>
-           </div>
-         </>
-       )}
-     </div>
-   );
- }
