@@ -1,59 +1,99 @@
-diff --git a/src/styles/index.css b/src/styles/index.css
-index eeda4a9898abed55c51dcd93be1df9cf9e618b7c..49221fc0256f1e0f3dd8b5cba54a07714a9b4a48 100644
---- a/src/styles/index.css
-+++ b/src/styles/index.css
-@@ -101,50 +101,54 @@ h2 {
-   gap: 6px;
-   background: #f1f5f9;
-   border: 1px solid #e2e8f0;
-   border-radius: 999px;
-   padding: 6px 10px;
-   font-size: 12px;
-   font-weight: 600;
-   color: #0f172a;
- }
+diff --git a/src/pages/AccountsPage.tsx b/src/pages/AccountsPage.tsx
+index 5889678e906e4fa0fa657a80a84ad2df9c236e07..fbbcb8698e2e97d165c590081c59f4b5d2593fca 100644
+--- a/src/pages/AccountsPage.tsx
++++ b/src/pages/AccountsPage.tsx
+@@ -86,71 +86,92 @@ export default function AccountsPage() {
+     }
+     syncGroupsMutation.mutate({ accountId: selectedId, groupIds: selectedGroupIds });
+   };
  
- .table {
-   width: 100%;
-   border-collapse: collapse;
- }
+   const handleStartEditingGroups = async () => {
+     if (!selectedId) {
+       return;
+     }
+     setIsEditingGroups(true);
+     await refetchAvailableGroups();
+   };
  
- .table thead {
-   text-align: left;
- }
+   return (
+     <div>
+       <div className="page-header">
+         <h2>VK аккаунты</h2>
+         <div className="tag">/vk-accounts + /vk-accounts/{'{id}'}/groups</div>
+       </div>
  
- .table th,
- .table td {
-   padding: 10px;
-   border-bottom: 1px solid #e2e8f0;
- }
+       <div className="grid-two">
+         <div className="card">
+           <h3>Список</h3>
+           <table className="table">
+             <thead>
+               <tr>
++                <th></th>
+                 <th>Alias</th>
+                 <th>Статус</th>
+                 <th>Группы</th>
+                 <th></th>
+               </tr>
+             </thead>
+             <tbody>
+               {accounts.map((account) => (
+-                <tr key={account.id}>
++                <tr
++                  key={account.id}
++                  className={selectedId === account.id ? 'table-row-selected' : undefined}
++                  onClick={() => setSelectedId(account.id)}
++                  style={{ cursor: 'pointer' }}
++                >
++                  <td>
++                    <input
++                      type="radio"
++                      name="selected-account"
++                      checked={selectedId === account.id}
++                      onChange={() => setSelectedId(account.id)}
++                      onClick={(event) => event.stopPropagation()}
++                    />
++                  </td>
+                   <td>
+                     <div style={{ fontWeight: 700 }}>{account.alias}</div>
+                     <div style={{ color: '#475569', fontSize: 12 }}>{account.username}</div>
+                   </td>
+                   <td>
+                     <span className={`status-pill status-${account.status.toLowerCase()}`}>
+                       {account.status}
+                     </span>
+                   </td>
+                   <td>{account.groupsCount}</td>
+                   <td>
+-                    <button className="btn btn-ghost" onClick={() => setSelectedId(account.id)}>
++                    <button
++                      className="btn btn-ghost"
++                      onClick={(event) => {
++                        event.stopPropagation();
++                        setSelectedId(account.id);
++                      }}
++                    >
+                       Подробнее
+                     </button>
+                   </td>
+                 </tr>
+               ))}
+             </tbody>
+           </table>
+         </div>
  
-+.table-row-selected {
-+  background: #f1f5ff;
-+}
-+
- .btn {
-   border: none;
-   border-radius: 10px;
-   padding: 10px 14px;
-   font-weight: 700;
-   cursor: pointer;
-   transition: transform 0.1s ease, box-shadow 0.2s ease;
- }
- 
- .btn-primary {
-   background: linear-gradient(90deg, #2563eb, #0ea5e9);
-   color: #f8fafc;
-   box-shadow: 0 6px 12px rgba(37, 99, 235, 0.25);
- }
- 
- .btn-ghost {
-   background: #e2e8f0;
-   color: #0f172a;
- }
- 
- .btn:hover {
-   transform: translateY(-1px);
- }
- 
- .form-grid {
+         <div className="card">
+           <h3>Добавить аккаунт</h3>
+           <p style={{ marginTop: 0, color: '#475569' }}>CreateVkAccountRequest: alias + token</p>
+           <form className="form-grid" onSubmit={handleSubmit}>
+             <label>
+               Название (alias)
+               <input className="input" name="alias" placeholder="Рабочий аккаунт" required />
+             </label>
+             <label>
+               Токен VK
+               <input className="input" name="token" placeholder="vk1.a...." required />
+             </label>
+             <button className="btn btn-primary" type="submit" disabled={mutation.isPending}>
+               {mutation.isPending ? 'Создаем…' : 'Создать'}
+             </button>
+           </form>

@@ -108,6 +108,7 @@ export default function AccountsPage() {
           <table className="table">
             <thead>
               <tr>
+                <th></th>
                 <th>Alias</th>
                 <th>Статус</th>
                 <th>Группы</th>
@@ -116,7 +117,21 @@ export default function AccountsPage() {
             </thead>
             <tbody>
               {accounts.map((account) => (
-                <tr key={account.id}>
+                <tr
+                  key={account.id}
+                  className={selectedId === account.id ? 'table-row-selected' : undefined}
+                  onClick={() => setSelectedId(account.id)}
+                  style={{ cursor: 'pointer' }}
+                >
+                  <td>
+                    <input
+                      type="radio"
+                      name="selected-account"
+                      checked={selectedId === account.id}
+                      onChange={() => setSelectedId(account.id)}
+                      onClick={(event) => event.stopPropagation()}
+                    />
+                  </td>
                   <td>
                     <div style={{ fontWeight: 700 }}>{account.alias}</div>
                     <div style={{ color: '#475569', fontSize: 12 }}>{account.username}</div>
@@ -128,7 +143,13 @@ export default function AccountsPage() {
                   </td>
                   <td>{account.groupsCount}</td>
                   <td>
-                    <button className="btn btn-ghost" onClick={() => setSelectedId(account.id)}>
+                    <button
+                      className="btn btn-ghost"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        setSelectedId(account.id);
+                      }}
+                    >
                       Подробнее
                     </button>
                   </td>
