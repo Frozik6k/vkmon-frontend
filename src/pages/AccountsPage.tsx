@@ -12,12 +12,17 @@ export default function AccountsPage() {
     queryFn: () => accountsApi.groups(selectedId ?? 0),
     enabled: Boolean(selectedId),
   });
-  const { data: availableGroups = [] } = useQuery({
+  const {
+    data: availableGroups = [],
+    refetch: refetchAvailableGroups,
+    isFetching: isFetchingAvailableGroups,
+  } = useQuery({
     queryKey: ['available-groups', selectedId],
     queryFn: () => accountsApi.availableGroups(selectedId ?? 0),
     enabled: Boolean(selectedId),
   });
   const [selectedGroupIds, setSelectedGroupIds] = useState<number[]>([]);
+  const [isEditingGroups, setIsEditingGroups] = useState(false);
 
   useEffect(() => {
     if (!selectedId && accounts.length > 0) {
@@ -32,6 +37,10 @@ export default function AccountsPage() {
     }
     setSelectedGroupIds(groups.map((group) => group.vkGroupId));
   }, [groups, selectedId]);
+
+  useEffect(() => {
+    setIsEditingGroups(false);
+  }, [selectedId]);
 
 
   const mutation = useMutation({
@@ -49,6 +58,7 @@ export default function AccountsPage() {
       queryClient.setQueryData(['groups', payload.accountId], () =>
         availableGroups.filter((group) => payload.groupIds.includes(group.vkGroupId)),
       );
+      setIsEditingGroups(false);
     },
   });
 
@@ -75,6 +85,14 @@ export default function AccountsPage() {
       return;
     }
     syncGroupsMutation.mutate({ accountId: selectedId, groupIds: selectedGroupIds });
+  };
+
+  const handleStartEditingGroups = async () => {
+    if (!selectedId) {
+      return;
+    }
+    setIsEditingGroups(true);
+    await refetchAvailableGroups();
   };
 
   return (
@@ -144,24 +162,37 @@ export default function AccountsPage() {
           <div className="card" style={{ marginTop: 16 }}>
             <div className="page-header" style={{ marginBottom: 12 }}>
               <div>
-                <h3>Обновление групп</h3>
+                <h3>Группы аккаунта {selectedAccount.alias}</h3>
                 <p style={{ margin: 0, color: '#475569' }}>
-                  Отметьте группы для добавления/удаления в аккаунте {selectedAccount.alias}.
+                  {isEditingGroups
+                    ? 'Отметьте группы для добавления/удаления в аккаунте.'
+                    : 'Добавленные группы для выбранного аккаунта.'}
                 </p>
               </div>
-              <button
-                className="btn btn-primary"
-                type="button"
-                onClick={handleSyncGroups}
-                disabled={syncGroupsMutation.isPending}
-              >
-                {syncGroupsMutation.isPending ? 'Обновляем…' : 'Обновить'}
-              </button>
+              {isEditingGroups ? (
+                <button
+                  className="btn btn-primary"
+                  type="button"
+                  onClick={handleSyncGroups}
+                  disabled={syncGroupsMutation.isPending || isFetchingAvailableGroups}
+                >
+                  {syncGroupsMutation.isPending ? 'Сохраняем…' : 'Сохранить'}
+                </button>
+              ) : (
+                <button
+                  className="btn btn-primary"
+                  type="button"
+                  onClick={handleStartEditingGroups}
+                  disabled={isFetchingAvailableGroups}
+                >
+                  {isFetchingAvailableGroups ? 'Обновляем…' : 'Обновить'}
+                </button>
+              )}
             </div>
             <table className="table">
               <thead>
                 <tr>
-                  <th></th>
+                  {isEditingGroups && <th></th>}
                   <th>Группа</th>
                   <th>Возраст</th>
                   <th>Активность</th>
@@ -169,42 +200,17 @@ export default function AccountsPage() {
                 </tr>
               </thead>
               <tbody>
-                {availableGroups.map((group) => (
+                {(isEditingGroups ? availableGroups : groups).map((group) => (
                   <tr key={group.vkGroupId}>
-                    <td>
-                      <input
-                        type="checkbox"
-                        checked={selectedGroupIds.includes(group.vkGroupId)}
-                        onChange={() => handleGroupToggle(group.vkGroupId)}
-                      />
-                    </td>
-                    <td>{group.name}</td>
-                    <td>{group.ageLimits}</td>
-                    <td>{group.isEnabled ? 'Включена' : 'Отключена'}</td>
-                    <td>{group.lastPostAt ? new Date(group.lastPostAt).toLocaleString('ru-RU') : '—'}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-
-          <div className="card" style={{ marginTop: 16 }}>
-            <div className="page-header" style={{ marginBottom: 12 }}>
-              <h3>Группы аккаунта {selectedAccount.alias}</h3>
-              <span className="badge">AgeLimits + статус</span>
-            </div>
-            <table className="table">
-              <thead>
-                <tr>
-                  <th>Группа</th>
-                  <th>Возраст</th>
-                  <th>Активность</th>
-                  <th>Последний пост</th>
-                </tr>
-              </thead>
-              <tbody>
-                {groups.map((group) => (
-                  <tr key={group.vkGroupId}>
+                    {isEditingGroups && (
+                      <td>
+                        <input
+                          type="checkbox"
+                          checked={selectedGroupIds.includes(group.vkGroupId)}
+                          onChange={() => handleGroupToggle(group.vkGroupId)}
+                        />
+                      </td>
+                    )}
                     <td>{group.name}</td>
                     <td>{group.ageLimits}</td>
                     <td>{group.isEnabled ? 'Включена' : 'Отключена'}</td>

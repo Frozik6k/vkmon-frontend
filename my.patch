@@ -1,89 +1,263 @@
-diff --git a/src/api/client.ts b/src/api/client.ts
-index 582909503701066098722ea2b24f320b43580ede..8443aa572d2c19906c6281e99a31c360d94fb478 100644
---- a/src/api/client.ts
-+++ b/src/api/client.ts
-@@ -1,44 +1,84 @@
- import axios from 'axios';
- import {
-   AiGenerateRequest,
-   AiPostDto,
-   AutoPostRequest,
-   LoginRequest,
-   RegisterRequest,
-   VkAccount,
-   VkGroup,
- } from './types';
- import { mockAccounts, mockAiPost, mockGroups, mockLogs } from './mockData';
+diff --git a/src/pages/AccountsPage.tsx b/src/pages/AccountsPage.tsx
+index 40ccddcbaa46c1635ad975206183bc78892957bb..5889678e906e4fa0fa657a80a84ad2df9c236e07 100644
+--- a/src/pages/AccountsPage.tsx
++++ b/src/pages/AccountsPage.tsx
+@@ -1,104 +1,122 @@
+ import { FormEvent, useEffect, useMemo, useState } from 'react';
+ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+ import { accountsApi } from '../api/client';
+ import type { VkAccount } from '../api/types';
  
-+const AUTH_STORAGE_KEY = 'vkmon-auth';
-+
-+type AuthCredentials = {
-+  username: string;
-+  password: string;
-+};
-+
-+const setAuthCredentials = (credentials: AuthCredentials) => {
-+  localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(credentials));
-+};
-+
-+const getAuthCredentials = (): AuthCredentials | null => {
-+  const raw = localStorage.getItem(AUTH_STORAGE_KEY);
-+  if (!raw) {
-+    return null;
-+  }
-+  try {
-+    const parsed = JSON.parse(raw) as AuthCredentials;
-+    if (parsed?.username && parsed?.password) {
-+      return parsed;
-+    }
-+  } catch (error) {
-+    console.warn('Unable to read stored credentials', error);
-+  }
-+  return null;
-+};
-+
- const api = axios.create({
-   baseURL: import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8080',
- });
+ export default function AccountsPage() {
+   const queryClient = useQueryClient();
+   const { data: accounts = [] } = useQuery({ queryKey: ['accounts'], queryFn: accountsApi.list });
+   const [selectedId, setSelectedId] = useState<number | null>(accounts[0]?.id ?? null);
+   const { data: groups = [] } = useQuery({
+     queryKey: ['groups', selectedId],
+     queryFn: () => accountsApi.groups(selectedId ?? 0),
+     enabled: Boolean(selectedId),
+   });
+-  const { data: availableGroups = [] } = useQuery({
++  const {
++    data: availableGroups = [],
++    refetch: refetchAvailableGroups,
++    isFetching: isFetchingAvailableGroups,
++  } = useQuery({
+     queryKey: ['available-groups', selectedId],
+     queryFn: () => accountsApi.availableGroups(selectedId ?? 0),
+     enabled: Boolean(selectedId),
+   });
+   const [selectedGroupIds, setSelectedGroupIds] = useState<number[]>([]);
++  const [isEditingGroups, setIsEditingGroups] = useState(false);
  
-+api.interceptors.request.use((config) => {
-+  const credentials = getAuthCredentials();
-+  if (credentials) {
-+    const token = btoa(`${credentials.username}:${credentials.password}`);
-+    config.headers = {
-+      ...config.headers,
-+      Authorization: `Basic ${token}`,
-+    };
-+  }
-+  return config;
-+});
-+
- export const authApi = {
-   login: async (payload: LoginRequest) => {
-     await api.post('/login', payload);
-+    setAuthCredentials(payload);
-     return { ok: true };
-   },
-   register: async (payload: RegisterRequest) => {
-     await api.post('/register', payload);
-     return { ok: true };
-   },
- };
- 
- export const accountsApi = {
-   async list(): Promise<VkAccount[]> {
-     try {
-       const { data } = await api.get<VkAccount[]>('/vk-accounts');
-       return data;
-     } catch (error) {
-       console.warn('Falling back to mock accounts', error);
-       return mockAccounts;
+   useEffect(() => {
+     if (!selectedId && accounts.length > 0) {
+       setSelectedId(accounts[0].id);
      }
-   },
-   async create(payload: Pick<VkAccount, 'alias' | 'token'>): Promise<VkAccount> {
-     try {
-       const { data } = await api.post<VkAccount>('/vk-accounts', payload);
-       return data;
-     } catch (error) {
-       console.warn('Mock account creation', error);
-       return {
+   }, [accounts, selectedId]);
+   
+   useEffect(() => {
+     if (!selectedId) {
+       setSelectedGroupIds([]);
+       return;
+     }
+     setSelectedGroupIds(groups.map((group) => group.vkGroupId));
+   }, [groups, selectedId]);
+ 
++  useEffect(() => {
++    setIsEditingGroups(false);
++  }, [selectedId]);
++
+ 
+   const mutation = useMutation({
+     mutationFn: (payload: Pick<VkAccount, 'alias' | 'token'>) => accountsApi.create(payload),
+     onSuccess: (newAccount) => {
+       queryClient.setQueryData<VkAccount[]>(['accounts'], (old = []) => [...old, newAccount]);
+       setSelectedId(newAccount.id);
+     },
+   });
+   
+   const syncGroupsMutation = useMutation({
+     mutationFn: (payload: { accountId: number; groupIds: number[] }) =>
+       accountsApi.syncGroups(payload.accountId, payload.groupIds),
+     onSuccess: (_, payload) => {
+       queryClient.setQueryData(['groups', payload.accountId], () =>
+         availableGroups.filter((group) => payload.groupIds.includes(group.vkGroupId)),
+       );
++      setIsEditingGroups(false);
+     },
+   });
+ 
+ 
+   const selectedAccount = useMemo(() => accounts.find((acc) => acc.id === selectedId), [accounts, selectedId]);
+ 
+   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+     event.preventDefault();
+     const formData = new FormData(event.currentTarget);
+     const alias = String(formData.get('alias'));
+     const token = String(formData.get('token'));
+     mutation.mutate({ alias, token });
+     event.currentTarget.reset();
+   };
+ 
+   const handleGroupToggle = (groupId: number) => {
+     setSelectedGroupIds((prev) =>
+       prev.includes(groupId) ? prev.filter((id) => id !== groupId) : [...prev, groupId],
+     );
+   };
+ 
+   const handleSyncGroups = () => {
+     if (!selectedId) {
+       return;
+     }
+     syncGroupsMutation.mutate({ accountId: selectedId, groupIds: selectedGroupIds });
+   };
+ 
++  const handleStartEditingGroups = async () => {
++    if (!selectedId) {
++      return;
++    }
++    setIsEditingGroups(true);
++    await refetchAvailableGroups();
++  };
++
+   return (
+     <div>
+       <div className="page-header">
+         <h2>VK аккаунты</h2>
+         <div className="tag">/vk-accounts + /vk-accounts/{'{id}'}/groups</div>
+       </div>
+ 
+       <div className="grid-two">
+         <div className="card">
+           <h3>Список</h3>
+           <table className="table">
+             <thead>
+               <tr>
+                 <th>Alias</th>
+                 <th>Статус</th>
+                 <th>Группы</th>
+                 <th></th>
+               </tr>
+             </thead>
+             <tbody>
+               {accounts.map((account) => (
+                 <tr key={account.id}>
+                   <td>
+                     <div style={{ fontWeight: 700 }}>{account.alias}</div>
+                     <div style={{ color: '#475569', fontSize: 12 }}>{account.username}</div>
+@@ -122,100 +140,88 @@ export default function AccountsPage() {
+ 
+         <div className="card">
+           <h3>Добавить аккаунт</h3>
+           <p style={{ marginTop: 0, color: '#475569' }}>CreateVkAccountRequest: alias + token</p>
+           <form className="form-grid" onSubmit={handleSubmit}>
+             <label>
+               Название (alias)
+               <input className="input" name="alias" placeholder="Рабочий аккаунт" required />
+             </label>
+             <label>
+               Токен VK
+               <input className="input" name="token" placeholder="vk1.a...." required />
+             </label>
+             <button className="btn btn-primary" type="submit" disabled={mutation.isPending}>
+               {mutation.isPending ? 'Создаем…' : 'Создать'}
+             </button>
+           </form>
+         </div>
+       </div>
+ 
+       {selectedAccount && (
+         <>
+           <div className="card" style={{ marginTop: 16 }}>
+             <div className="page-header" style={{ marginBottom: 12 }}>
+               <div>
+-                <h3>Обновление групп</h3>
++                <h3>Группы аккаунта {selectedAccount.alias}</h3>
+                 <p style={{ margin: 0, color: '#475569' }}>
+-                  Отметьте группы для добавления/удаления в аккаунте {selectedAccount.alias}.
++                  {isEditingGroups
++                    ? 'Отметьте группы для добавления/удаления в аккаунте.'
++                    : 'Добавленные группы для выбранного аккаунта.'}
+                 </p>
+               </div>
+-              <button
+-                className="btn btn-primary"
+-                type="button"
+-                onClick={handleSyncGroups}
+-                disabled={syncGroupsMutation.isPending}
+-              >
+-                {syncGroupsMutation.isPending ? 'Обновляем…' : 'Обновить'}
+-              </button>
+-            </div>
+-            <table className="table">
+-              <thead>
+-                <tr>
+-                  <th></th>
+-                  <th>Группа</th>
+-                  <th>Возраст</th>
+-                  <th>Активность</th>
+-                  <th>Последний пост</th>
+-                </tr>
+-              </thead>
+-              <tbody>
+-                {availableGroups.map((group) => (
+-                  <tr key={group.vkGroupId}>
+-                    <td>
+-                      <input
+-                        type="checkbox"
+-                        checked={selectedGroupIds.includes(group.vkGroupId)}
+-                        onChange={() => handleGroupToggle(group.vkGroupId)}
+-                      />
+-                    </td>
+-                    <td>{group.name}</td>
+-                    <td>{group.ageLimits}</td>
+-                    <td>{group.isEnabled ? 'Включена' : 'Отключена'}</td>
+-                    <td>{group.lastPostAt ? new Date(group.lastPostAt).toLocaleString('ru-RU') : '—'}</td>
+-                  </tr>
+-                ))}
+-              </tbody>
+-            </table>
+-          </div>
+-
+-          <div className="card" style={{ marginTop: 16 }}>
+-            <div className="page-header" style={{ marginBottom: 12 }}>
+-              <h3>Группы аккаунта {selectedAccount.alias}</h3>
+-              <span className="badge">AgeLimits + статус</span>
++              {isEditingGroups ? (
++                <button
++                  className="btn btn-primary"
++                  type="button"
++                  onClick={handleSyncGroups}
++                  disabled={syncGroupsMutation.isPending || isFetchingAvailableGroups}
++                >
++                  {syncGroupsMutation.isPending ? 'Сохраняем…' : 'Сохранить'}
++                </button>
++              ) : (
++                <button
++                  className="btn btn-primary"
++                  type="button"
++                  onClick={handleStartEditingGroups}
++                  disabled={isFetchingAvailableGroups}
++                >
++                  {isFetchingAvailableGroups ? 'Обновляем…' : 'Обновить'}
++                </button>
++              )}
+             </div>
+             <table className="table">
+               <thead>
+                 <tr>
++                  {isEditingGroups && <th></th>}
+                   <th>Группа</th>
+                   <th>Возраст</th>
+                   <th>Активность</th>
+                   <th>Последний пост</th>
+                 </tr>
+               </thead>
+               <tbody>
+-                {groups.map((group) => (
++                {(isEditingGroups ? availableGroups : groups).map((group) => (
+                   <tr key={group.vkGroupId}>
++                    {isEditingGroups && (
++                      <td>
++                        <input
++                          type="checkbox"
++                          checked={selectedGroupIds.includes(group.vkGroupId)}
++                          onChange={() => handleGroupToggle(group.vkGroupId)}
++                        />
++                      </td>
++                    )}
+                     <td>{group.name}</td>
+                     <td>{group.ageLimits}</td>
+                     <td>{group.isEnabled ? 'Включена' : 'Отключена'}</td>
+                     <td>{group.lastPostAt ? new Date(group.lastPostAt).toLocaleString('ru-RU') : '—'}</td>
+                   </tr>
+                 ))}
+               </tbody>
+             </table>
+           </div>
+         </>
+       )}
+     </div>
+   );
+ }
