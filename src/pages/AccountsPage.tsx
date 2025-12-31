@@ -51,6 +51,21 @@ export default function AccountsPage() {
     },
   });
   
+  const removeAccountMutation = useMutation({
+    mutationFn: (accountId: number) => accountsApi.remove(accountId),
+    onSuccess: (_, accountId) => {
+      queryClient.setQueryData<VkAccount[]>(['accounts'], (old = []) =>
+        old.filter((account) => account.id !== accountId),
+      );
+      queryClient.removeQueries({ queryKey: ['groups', accountId] });
+      queryClient.removeQueries({ queryKey: ['available-groups', accountId] });
+      if (selectedId === accountId) {
+        const remaining = accounts.filter((account) => account.id !== accountId);
+        setSelectedId(remaining[0]?.id ?? null);
+      }
+    },
+  });
+  
   const syncGroupsMutation = useMutation({
     mutationFn: (payload: { accountId: number; groupIds: number[] }) =>
       accountsApi.syncGroups(payload.accountId, payload.groupIds),
@@ -95,6 +110,14 @@ export default function AccountsPage() {
     await Promise.all([refetchGroups(), refetchAvailableGroups()]);
   };
 
+  const handleRemoveAccount = (account: VkAccount) => {
+    const confirmed = window.confirm(`Удалить аккаунт "${account.alias}"?`);
+    if (!confirmed) {
+      return;
+    }
+    removeAccountMutation.mutate(account.id);
+  };
+
   return (
     <div>
       <div className="page-header">
@@ -113,6 +136,7 @@ export default function AccountsPage() {
                 <th>Статус</th>
                 <th>Группы</th>
                 <th></th>
+				<th></th>
               </tr>
             </thead>
             <tbody>
@@ -151,6 +175,18 @@ export default function AccountsPage() {
                       }}
                     >
                       Подробнее
+                    </button>
+                  </td>
+				  <td>
+                    <button
+                      className="btn btn-danger"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        handleRemoveAccount(account);
+                      }}
+                      disabled={removeAccountMutation.isPending}
+                    >
+                      Удалить
                     </button>
                   </td>
                 </tr>

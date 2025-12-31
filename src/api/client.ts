@@ -129,6 +129,15 @@ export const accountsApi = {
     });
     return data;
   },
+  async remove(accountId: number): Promise<{ ok: boolean }> {
+    try {
+      await api.delete(`/vk-accounts/${accountId}`);
+      return { ok: true };
+    } catch (error) {
+      console.warn('Mock account removal', error);
+      return { ok: true };
+    }
+  },
 };
 
 export const autopostApi = {

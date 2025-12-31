@@ -147,6 +147,11 @@ h2 {
   color: #0f172a;
 }
 
+.btn-danger {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
 .btn:hover {
   transform: translateY(-1px);
 }
