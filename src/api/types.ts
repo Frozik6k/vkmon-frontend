@@ -24,12 +24,19 @@ export interface VkAccount {
 
 export type AgeLimits = 'NONE' | 'SIXTEEN' | 'EIGHTEEN';
 
+export enum Deactivated {
+  deleted = 'deleted',
+  banned = 'banned',
+  active = 'active',
+}
+
 export interface VkGroup {
   vkGroupId: number;
   name: string;
   avatar: string;
   ageLimits: AgeLimits;
   isEnabled: boolean;
+  deactivated: Deactivated;
   lastPostAt?: string;
   fixedPost?: number;
 }

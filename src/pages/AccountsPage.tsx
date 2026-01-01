@@ -1,7 +1,7 @@
 import { FormEvent, useEffect, useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { accountsApi } from '../api/client';
-import type { VkAccount } from '../api/types';
+import type { Deactivated, VkAccount } from '../api/types';
 
 export default function AccountsPage() {
   const queryClient = useQueryClient();
@@ -32,6 +32,13 @@ export default function AccountsPage() {
     '2': '16+',
     '3': '18+',
   };
+  
+  const deactivatedLabels: Record<Deactivated, string> = {
+    deleted: 'Удалена',
+    banned: 'Заблокирована',
+    active: 'Доступна',
+  };
+
 
   const formatAgeLimit = (ageLimit: string | number | null | undefined) => {
     if (ageLimit === null || ageLimit === undefined || ageLimit === '') {
@@ -43,6 +50,12 @@ export default function AccountsPage() {
     return ageLimitLabels[normalizedKey] ?? normalized;
   };
 
+  const formatDeactivated = (status?: Deactivated | null) => {
+    if (!status) {
+      return '—';
+    }
+    return deactivatedLabels[status] ?? status;
+  };
 
   useEffect(() => {
     if (!selectedId && accounts.length > 0) {
@@ -272,6 +285,7 @@ export default function AccountsPage() {
                   {isEditingGroups && <th></th>}
                   <th>Группа</th>
                   <th>Возраст</th>
+				  <th>Статус блокировки</th>
                   <th>Активность</th>
                   <th>Последний пост</th>
                 </tr>
@@ -290,6 +304,7 @@ export default function AccountsPage() {
                     )}
                     <td>{group.name}</td>
                     <td>{formatAgeLimit(group.ageLimits)}</td>
+					<td>{formatDeactivated(group.deactivated)}</td>
                     <td>{group.isEnabled ? 'Включена' : 'Отключена'}</td>
                     <td>{group.lastPostAt ? new Date(group.lastPostAt).toLocaleString('ru-RU') : '—'}</td>
                   </tr>

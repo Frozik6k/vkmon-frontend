@@ -1,4 +1,4 @@
-import { AiPostDto, LogItem, SubscriptionPlan, VkAccount, VkGroup } from './types';
+import { AiPostDto, Deactivated, LogItem, SubscriptionPlan, VkAccount, VkGroup } from './types';
 
 export const mockAccounts: VkAccount[] = [
   {
@@ -30,6 +30,7 @@ export const mockGroups: VkGroup[] = [
     avatar: 'https://placehold.co/64x64',
     ageLimits: 'NONE',
     isEnabled: true,
+	deactivated: Deactivated.active,
     lastPostAt: new Date(Date.now() - 1000 * 60 * 60 * 2).toISOString(),
     fixedPost: 1345,
   },
@@ -39,6 +40,7 @@ export const mockGroups: VkGroup[] = [
     avatar: 'https://placehold.co/64x64',
     ageLimits: 'SIXTEEN',
     isEnabled: false,
+	deactivated: Deactivated.banned,
     lastPostAt: new Date(Date.now() - 1000 * 60 * 60 * 24).toISOString(),
     fixedPost: 0,
   },
@@ -52,6 +54,7 @@ export const mockAvailableGroups: VkGroup[] = [
     avatar: 'https://placehold.co/64x64',
     ageLimits: 'NONE',
     isEnabled: true,
+	deactivated: Deactivated.active,
     lastPostAt: new Date(Date.now() - 1000 * 60 * 60 * 6).toISOString(),
     fixedPost: 0,
   },
@@ -61,6 +64,7 @@ export const mockAvailableGroups: VkGroup[] = [
     avatar: 'https://placehold.co/64x64',
     ageLimits: 'SIXTEEN',
     isEnabled: false,
+	deactivated: Deactivated.deleted,
     lastPostAt: new Date(Date.now() - 1000 * 60 * 60 * 40).toISOString(),
     fixedPost: 112,
   },
@@ -70,6 +74,7 @@ export const mockAvailableGroups: VkGroup[] = [
     avatar: 'https://placehold.co/64x64',
     ageLimits: 'EIGHTEEN',
     isEnabled: true,
+	deactivated: Deactivated.active,
     lastPostAt: undefined,
     fixedPost: 0,
   },
