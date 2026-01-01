@@ -24,6 +24,26 @@ export default function AccountsPage() {
   const [selectedGroupIds, setSelectedGroupIds] = useState<number[]>([]);
   const [isEditingGroups, setIsEditingGroups] = useState(false);
 
+  const ageLimitLabels: Record<string, string> = {
+    NONE: 'Без ограничений',
+    SIXTEEN: '16+',
+    EIGHTEEN: '18+',
+    '1': 'Без ограничений',
+    '2': '16+',
+    '3': '18+',
+  };
+
+  const formatAgeLimit = (ageLimit: string | number | null | undefined) => {
+    if (ageLimit === null || ageLimit === undefined || ageLimit === '') {
+      return '—';
+    }
+    const normalized = typeof ageLimit === 'string' ? ageLimit : String(ageLimit);
+    const match = normalized.match(/value=(\d+)/);
+    const normalizedKey = match?.[1] ?? normalized;
+    return ageLimitLabels[normalizedKey] ?? normalized;
+  };
+
+
   useEffect(() => {
     if (!selectedId && accounts.length > 0) {
       setSelectedId(accounts[0].id);
@@ -269,7 +289,7 @@ export default function AccountsPage() {
                       </td>
                     )}
                     <td>{group.name}</td>
-                    <td>{group.ageLimits}</td>
+                    <td>{formatAgeLimit(group.ageLimits)}</td>
                     <td>{group.isEnabled ? 'Включена' : 'Отключена'}</td>
                     <td>{group.lastPostAt ? new Date(group.lastPostAt).toLocaleString('ru-RU') : '—'}</td>
                   </tr>
