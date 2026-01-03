@@ -19,7 +19,7 @@ export default function AccountsPage() {
   } = useQuery({
     queryKey: ['available-groups', selectedId],
     queryFn: () => accountsApi.availableGroups(selectedId ?? 0),
-    enabled: selectedId !== null,
+    enabled: false,
   });
   const [selectedGroupIds, setSelectedGroupIds] = useState<number[]>([]);
   const [isEditingGroups, setIsEditingGroups] = useState(false);
