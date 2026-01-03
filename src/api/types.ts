@@ -36,6 +36,7 @@ export interface VkGroup {
   avatar: string;
   ageLimits: AgeLimits;
   isEnabled: boolean;
+  isUse: boolean;
   deactivated: Deactivated;
   lastPostAt?: string;
   fixedPost?: number;

@@ -291,24 +291,32 @@ export default function AccountsPage() {
                 </tr>
               </thead>
               <tbody>
-                {(isEditingGroups ? availableGroups : groups).map((group) => (
-                  <tr key={group.vkGroupId}>
-                    {isEditingGroups && (
-                      <td>
-                        <input
-                          type="checkbox"
-                          checked={selectedGroupIds.includes(group.vkGroupId)}
-                          onChange={() => handleGroupToggle(group.vkGroupId)}
-                        />
-                      </td>
-                    )}
-                    <td>{group.name}</td>
-                    <td>{formatAgeLimit(group.ageLimits)}</td>
-					<td>{formatDeactivated(group.deactivated)}</td>
-                    <td>{group.isEnabled ? 'Включена' : 'Отключена'}</td>
-                    <td>{group.lastPostAt ? new Date(group.lastPostAt).toLocaleString('ru-RU') : '—'}</td>
-                  </tr>
-                ))}
+                {(isEditingGroups ? availableGroups : groups).map((group) => {
+                  const isLocked = isEditingGroups && group.isUse;
+                  return (
+                    <tr key={group.vkGroupId} className={isLocked ? 'table-row-disabled' : undefined}>
+                      {isEditingGroups && (
+                        <td>
+                          <input
+                            type="checkbox"
+                            checked={selectedGroupIds.includes(group.vkGroupId)}
+                            disabled={isLocked}
+                            onChange={() => {
+                              if (!isLocked) {
+                                handleGroupToggle(group.vkGroupId);
+                              }
+                            }}
+                          />
+                        </td>
+                      )}
+                      <td>{group.name}</td>
+                      <td>{formatAgeLimit(group.ageLimits)}</td>
+					  <td>{formatDeactivated(group.deactivated)}</td>
+                      <td>{group.isEnabled ? 'Включена' : 'Отключена'}</td>
+                      <td>{group.lastPostAt ? new Date(group.lastPostAt).toLocaleString('ru-RU') : '—'}</td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
