@@ -1,7 +1,7 @@
 import { FormEvent, useEffect, useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { accountsApi } from '../api/client';
-import type { Deactivated, VkAccount } from '../api/types';
+import type { Deactivated, VkAccount, VkGroup } from '../api/types';
 
 export default function AccountsPage() {
   const queryClient = useQueryClient();
@@ -15,6 +15,16 @@ export default function AccountsPage() {
 
   const [selectedGroupIds, setSelectedGroupIds] = useState<number[]>([]);
   const [isEditingGroups, setIsEditingGroups] = useState(false);
+
+  const {
+    data: availableGroups = [],
+    refetch: refetchAvailableGroups,
+    isFetching: isFetchingAvailableGroups,
+  } = useQuery({
+    queryKey: ['available-groups', selectedId],
+    queryFn: () => accountsApi.availableGroups(selectedId ?? 0),
+    enabled: selectedId !== null && isEditingGroups,
+  });
 
   const ageLimitLabels: Record<string, string> = {
     NONE: 'Без ограничений',
@@ -96,7 +106,7 @@ export default function AccountsPage() {
       accountsApi.syncGroups(payload.accountId, payload.groupIds),
     onSuccess: (_, payload) => {
       queryClient.setQueryData(['groups', payload.accountId], () =>
-        availableGroups.filter((group) => payload.groupIds.includes(group.vkGroupId)),
+        availableGroups.filter((group: VkGroup) => payload.groupIds.includes(group.vkGroupId)),
       );
       setIsEditingGroups(false);
     },
