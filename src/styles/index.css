@@ -290,6 +290,19 @@ h2 {
   align-items: center;
 }
 
+.breadcrumb-button {
+  border: none;
+  background: none;
+  padding: 0;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+
+.breadcrumb-button:hover {
+  text-decoration: underline;
+}
+
 .breadcrumb-separator {
   color: #94a3b8;
 }
@@ -316,6 +329,20 @@ h2 {
   flex-wrap: wrap;
   gap: 10px;
   margin-bottom: 16px;
+}
+
+.node-link {
+  border: none;
+  background: none;
+  padding: 0;
+  font: inherit;
+  font-weight: 600;
+  color: #2563eb;
+  cursor: pointer;
+}
+
+.node-link:hover {
+  text-decoration: underline;
 }
 
 .upload-panel {

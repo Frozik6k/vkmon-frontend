@@ -74,9 +74,9 @@ const mockNodes: Record<StorageType, StorageNode[]> = {
   ],
 };
 
-const breadcrumbs: Record<StorageType, string[]> = {
-  IMAGES: ['Медиа контент', 'Изображения'],
-  VIDEOS: ['Медиа контент', 'Видео'],
+const storageLabels: Record<StorageType, string> = {
+  IMAGES: 'Изображения',
+  VIDEOS: 'Видео',
 };
 
 const storageDescriptions: Record<StorageType, string> = {
@@ -99,10 +99,40 @@ const formatSize = (size?: number) => {
 export default function MediaContentPage() {
   const [storage, setStorage] = useState<StorageType>('IMAGES');
   const [storageNodes, setStorageNodes] = useState<Record<StorageType, StorageNode[]>>(mockNodes);
+    const [currentPathByStorage, setCurrentPathByStorage] = useState<Record<StorageType, string>>({
+    IMAGES: '',
+    VIDEOS: '',
+  });
   const filesInputRef = useRef<HTMLInputElement>(null);
   const folderInputRef = useRef<HTMLInputElement>(null);
 
   const nodes = useMemo(() => storageNodes[storage], [storage, storageNodes]);
+    const currentPath = currentPathByStorage[storage];
+  const getParentPath = (path: string) => {
+    const trimmed = path.endsWith('/') ? path.slice(0, -1) : path;
+    const lastSlashIndex = trimmed.lastIndexOf('/');
+    if (lastSlashIndex === -1) return '';
+    return `${trimmed.slice(0, lastSlashIndex + 1)}`;
+  };
+  const visibleNodes = useMemo(
+    () => nodes.filter((node) => getParentPath(node.path) === currentPath),
+    [nodes, currentPath]
+  );
+  const getItemsCount = (path: string) => nodes.filter((node) => getParentPath(node.path) === path).length;
+  const breadcrumbs = useMemo(() => {
+    const base = [
+      { label: 'Медиа контент', path: '' },
+      { label: storageLabels[storage], path: '' },
+    ];
+    if (!currentPath) return base;
+    const segments = currentPath.split('/').filter(Boolean);
+    let accumulated = '';
+    const folderCrumbs = segments.map((segment) => {
+      accumulated = `${accumulated}${segment}/`;
+      return { label: segment, path: accumulated };
+    });
+    return [...base, ...folderCrumbs];
+  }, [currentPath, storage]);
   const totals = useMemo(() => {
     const folders = nodes.filter((item) => item.type === 'FOLDER').length;
     const files = nodes.filter((item) => item.type === 'FILE').length;
@@ -133,7 +163,7 @@ export default function MediaContentPage() {
       {
         type: 'FOLDER',
         name: trimmedName,
-        path: `${trimmedName.replace(/\s+/g, '-').toLowerCase()}/`,
+        path: `${currentPath}${trimmedName.replace(/\s+/g, '-').toLowerCase()}/`,
         itemsCount: 0,
         lastModified: new Date().toISOString(),
       },
@@ -147,7 +177,7 @@ export default function MediaContentPage() {
       files.map((file) => ({
         type: 'FILE',
         name: file.name,
-        path: file.webkitRelativePath || file.name,
+        path: `${currentPath}${file.webkitRelativePath || file.name}`,
         size: file.size,
         contentType: file.type || 'application/octet-stream',
         lastModified: file.lastModified ? new Date(file.lastModified).toISOString() : undefined,
@@ -159,6 +189,14 @@ export default function MediaContentPage() {
   const openFilesDialog = () => {
     filesInputRef.current?.click();
   };
+  
+  const handleOpenFolder = (path: string) => {
+    setCurrentPathByStorage((prev) => ({
+      ...prev,
+      [storage]: path,
+    }));
+  };
+
 
   const openFolderDialog = () => {
     folderInputRef.current?.click();
@@ -193,10 +231,16 @@ export default function MediaContentPage() {
         <section className="card">
           <div className="section">
             <div className="breadcrumb">
-              {breadcrumbs[storage].map((crumb, index) => (
-                <span key={crumb} className="breadcrumb-item">
-                  {crumb}
-                  {index < breadcrumbs[storage].length - 1 && <span className="breadcrumb-separator">/</span>}
+              {breadcrumbs.map((crumb, index) => (
+                <span key={`${crumb.label}-${crumb.path}`} className="breadcrumb-item">
+                  <button
+                    className="breadcrumb-button"
+                    type="button"
+                    onClick={() => handleOpenFolder(crumb.path)}
+                  >
+                    {crumb.label}
+                  </button>
+                  {index < breadcrumbs.length - 1 && <span className="breadcrumb-separator">/</span>}
                 </span>
               ))}
             </div>
@@ -215,20 +259,6 @@ export default function MediaContentPage() {
             </button>
           </div>
 
-          <div className="upload-panel">
-            <div>
-              <h3>Загрузка контента</h3>
-              <p className="muted-text">
-                Поддерживается загрузка отдельных файлов или целых папок. При выборе папки можно сохранить структуру.
-              </p>
-            </div>
-            <div className="dropzone">
-              <span>Перетащите файлы сюда или выберите на компьютере</span>
-              <button className="btn btn-primary" type="button" onClick={openFilesDialog}>
-                Выбрать файлы/папку
-              </button>
-            </div>
-          </div>
 		  <input
             ref={filesInputRef}
             className="visually-hidden"
@@ -291,23 +321,38 @@ export default function MediaContentPage() {
             </tr>
           </thead>
           <tbody>
-            {nodes.map((node) => (
+            {visibleNodes.map((node) => (
               <tr key={node.path}>
                 <td>
                   <div className="node-name">
                     <span className={`node-icon ${node.type === 'FOLDER' ? 'folder' : 'file'}`} />
                     <div>
-                      <strong>{node.name}</strong>
+                      {node.type === 'FOLDER' ? (
+                        <button
+                          type="button"
+                          className="node-link"
+                          onClick={() => handleOpenFolder(node.path)}
+                        >
+                          {node.name}
+                        </button>
+                      ) : (
+                        <strong>{node.name}</strong>
+                      )}
                       <div className="muted-text">{node.path}</div>
                     </div>
                   </div>
                 </td>
                 <td>{node.type === 'FOLDER' ? 'Папка' : node.contentType}</td>
-                <td>{node.type === 'FOLDER' ? `${node.itemsCount ?? 0} элементов` : formatSize(node.size)}</td>
+                <td>{node.type === 'FOLDER' ? `${getItemsCount(node.path)} элементов` : formatSize(node.size)}</td>
                 <td>{node.lastModified ? new Date(node.lastModified).toLocaleString('ru-RU') : '—'}</td>
                 <td>
                   <div className="table-actions">
-                    <button className="btn btn-ghost" type="button">
+                    <button
+                      className="btn btn-ghost"
+                      type="button"
+                      onClick={node.type === 'FOLDER' ? () => handleOpenFolder(node.path) : undefined}
+                      disabled={node.type !== 'FOLDER'}
+                    >
                       Открыть
                     </button>
                     <button className="btn btn-ghost" type="button">
