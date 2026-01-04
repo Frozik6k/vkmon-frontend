@@ -1,78 +1,6 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
-
-type StorageType = 'IMAGES' | 'VIDEOS';
-
-type NodeType = 'FOLDER' | 'FILE';
-
-interface StorageNode {
-  type: NodeType;
-  name: string;
-  path: string;
-  itemsCount?: number;
-  size?: number;
-  contentType?: string;
-  lastModified?: string;
-}
-
-const mockNodes: Record<StorageType, StorageNode[]> = {
-  IMAGES: [
-    {
-      type: 'FOLDER',
-      name: 'Промо-баннеры',
-      path: 'promo/',
-      itemsCount: 12,
-      lastModified: '2024-09-03T10:12:00Z',
-    },
-    {
-      type: 'FOLDER',
-      name: 'Обложки',
-      path: 'covers/',
-      itemsCount: 5,
-      lastModified: '2024-09-02T14:40:00Z',
-    },
-    {
-      type: 'FILE',
-      name: 'summer-campaign.png',
-      path: 'promo/summer-campaign.png',
-      size: 824_000,
-      contentType: 'image/png',
-      lastModified: '2024-09-03T11:25:00Z',
-    },
-    {
-      type: 'FILE',
-      name: 'new-avatar.jpg',
-      path: 'covers/new-avatar.jpg',
-      size: 492_000,
-      contentType: 'image/jpeg',
-      lastModified: '2024-09-01T08:10:00Z',
-    },
-  ],
-  VIDEOS: [
-    {
-      type: 'FOLDER',
-      name: 'Рекламные ролики',
-      path: 'ads/',
-      itemsCount: 4,
-      lastModified: '2024-09-04T15:30:00Z',
-    },
-    {
-      type: 'FILE',
-      name: 'launch-teaser.mp4',
-      path: 'ads/launch-teaser.mp4',
-      size: 98_400_000,
-      contentType: 'video/mp4',
-      lastModified: '2024-09-04T09:05:00Z',
-    },
-    {
-      type: 'FILE',
-      name: 'product-demo.mov',
-      path: 'demo/product-demo.mov',
-      size: 188_200_000,
-      contentType: 'video/quicktime',
-      lastModified: '2024-09-02T17:45:00Z',
-    },
-  ],
-};
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { storageApi } from '../api/client';
+import { StorageNodeDto, StorageType } from '../api/types';
 
 const storageLabels: Record<StorageType, string> = {
   IMAGES: 'Изображения',
@@ -98,27 +26,30 @@ const formatSize = (size?: number) => {
 
 export default function MediaContentPage() {
   const [storage, setStorage] = useState<StorageType>('IMAGES');
-  const [storageNodes, setStorageNodes] = useState<Record<StorageType, StorageNode[]>>(mockNodes);
-    const [currentPathByStorage, setCurrentPathByStorage] = useState<Record<StorageType, string>>({
+  const [nodes, setNodes] = useState<StorageNodeDto[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [currentPathByStorage, setCurrentPathByStorage] = useState<Record<StorageType, string>>({
     IMAGES: '',
     VIDEOS: '',
   });
   const filesInputRef = useRef<HTMLInputElement>(null);
   const folderInputRef = useRef<HTMLInputElement>(null);
 
-  const nodes = useMemo(() => storageNodes[storage], [storage, storageNodes]);
-    const currentPath = currentPathByStorage[storage];
+  const currentPath = currentPathByStorage[storage];
   const getParentPath = (path: string) => {
     const trimmed = path.endsWith('/') ? path.slice(0, -1) : path;
     const lastSlashIndex = trimmed.lastIndexOf('/');
     if (lastSlashIndex === -1) return '';
     return `${trimmed.slice(0, lastSlashIndex + 1)}`;
   };
-  const visibleNodes = useMemo(
-    () => nodes.filter((node) => getParentPath(node.path) === currentPath),
-    [nodes, currentPath]
-  );
-  const getItemsCount = (path: string) => nodes.filter((node) => getParentPath(node.path) === path).length;
+  const visibleNodes = useMemo(() => nodes, [nodes]);
+  const getNodeName = useCallback((node: StorageNodeDto) => {
+    if (node.name) return node.name;
+    const trimmed = node.path.endsWith('/') ? node.path.slice(0, -1) : node.path;
+    const segments = trimmed.split('/').filter(Boolean);
+    return segments[segments.length - 1] ?? node.path;
+  }, []);
   const breadcrumbs = useMemo(() => {
     const base = [
       { label: 'Медиа контент', path: '' },
@@ -141,6 +72,24 @@ export default function MediaContentPage() {
   }, [nodes]);
   const parentPath = useMemo(() => getParentPath(currentPath), [currentPath]);
 
+  const loadNodes = useCallback(
+    async (activeStorage: StorageType, path: string) => {
+      setIsLoading(true);
+      setErrorMessage(null);
+      try {
+        const response = await storageApi.listNodes(activeStorage, path || undefined);
+        setNodes(response.nodes ?? []);
+      } catch (error) {
+        console.error('Unable to load storage nodes', error);
+        setErrorMessage('Не удалось загрузить список файлов. Проверьте подключение к API.');
+        setNodes([]);
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    [setNodes]
+  );
+
   useEffect(() => {
     if (folderInputRef.current) {
       folderInputRef.current.setAttribute('webkitdirectory', '');
@@ -148,42 +97,43 @@ export default function MediaContentPage() {
     }
   }, []);
 
-  const appendNodes = (newNodes: StorageNode[]) => {
-    setStorageNodes((prev) => ({
-      ...prev,
-      [storage]: [...newNodes, ...prev[storage]],
-    }));
-  };
+  useEffect(() => {
+    void loadNodes(storage, currentPath);
+  }, [storage, currentPath, loadNodes]);
 
-  const handleCreateFolder = () => {
+  const handleCreateFolder = async () => {
     const name = window.prompt('Введите название папки');
     if (!name) return;
     const trimmedName = name.trim();
     if (!trimmedName) return;
-    appendNodes([
-      {
-        type: 'FOLDER',
-        name: trimmedName,
-        path: `${currentPath}${trimmedName.replace(/\s+/g, '-').toLowerCase()}/`,
-        itemsCount: 0,
-        lastModified: new Date().toISOString(),
-      },
-    ]);
+    const normalizedPath = `${currentPath}${trimmedName.replace(/\s+/g, '-').toLowerCase()}/`;
+    try {
+      await storageApi.createFolder(storage, { path: normalizedPath });
+      await loadNodes(storage, currentPath);
+    } catch (error) {
+      console.error('Unable to create folder', error);
+      setErrorMessage('Не удалось создать папку. Проверьте подключение к API.');
+    }
   };
 
-  const handleFilesSelected = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFilesSelected = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(event.target.files ?? []);
     if (!files.length) return;
-    appendNodes(
-      files.map((file) => ({
-        type: 'FILE',
-        name: file.name,
-        path: `${currentPath}${file.webkitRelativePath || file.name}`,
-        size: file.size,
-        contentType: file.type || 'application/octet-stream',
-        lastModified: file.lastModified ? new Date(file.lastModified).toISOString() : undefined,
-      }))
-    );
+    const relativePaths = files
+      .map((file) => file.webkitRelativePath)
+      .filter((path): path is string => Boolean(path));
+    try {
+      await storageApi.upload(
+        storage,
+        { basePath: currentPath },
+        files,
+        relativePaths.length ? relativePaths : undefined
+      );
+      await loadNodes(storage, currentPath);
+    } catch (error) {
+      console.error('Unable to upload files', error);
+      setErrorMessage('Не удалось загрузить файлы. Проверьте подключение к API.');
+    }
     event.target.value = '';
   };
 
@@ -212,7 +162,7 @@ export default function MediaContentPage() {
             Управление файлами и папками в S3: раздельные хранилища для изображений и видео.
           </p>
         </div>
-        <span className="tag">API: /storage/nodes · /storage/folders · /storage/uploads</span>
+        <span className="tag">API: /storage/{'{storage}'}/nodes · /storage/{'{storage}'}/folder · /storage/{'{storage}'}/upload</span>
       </div>
 
       <div className="storage-toggle">
@@ -231,7 +181,7 @@ export default function MediaContentPage() {
       <div className="media-grid">
         <section className="card">
           <div className="section">
-                        <div className="breadcrumb-row">
+            <div className="breadcrumb-row">
               <div className="breadcrumb">
                 {breadcrumbs.map((crumb, index) => (
                   <span key={`${crumb.label}-${crumb.path}`} className="breadcrumb-item">
@@ -323,6 +273,7 @@ export default function MediaContentPage() {
 
       <section className="card">
         <h3>Список файлов и папок</h3>
+		{errorMessage && <div className="alert alert-error">{errorMessage}</div>}
         <table className="table">
           <thead>
             <tr>
@@ -334,47 +285,63 @@ export default function MediaContentPage() {
             </tr>
           </thead>
           <tbody>
-            {visibleNodes.map((node) => (
-              <tr key={node.path}>
-                <td>
-                  <div className="node-name">
-                    <span className={`node-icon ${node.type === 'FOLDER' ? 'folder' : 'file'}`} />
-                    <div>
-                      {node.type === 'FOLDER' ? (
-                        <button
-                          type="button"
-                          className="node-link"
-                          onClick={() => handleOpenFolder(node.path)}
-                        >
-                          {node.name}
-                        </button>
-                      ) : (
-                        <strong>{node.name}</strong>
-                      )}
-                      <div className="muted-text">{node.path}</div>
-                    </div>
-                  </div>
-                </td>
-                <td>{node.type === 'FOLDER' ? 'Папка' : node.contentType}</td>
-                <td>{node.type === 'FOLDER' ? `${getItemsCount(node.path)} элементов` : formatSize(node.size)}</td>
-                <td>{node.lastModified ? new Date(node.lastModified).toLocaleString('ru-RU') : '—'}</td>
-                <td>
-                  <div className="table-actions">
-                    <button
-                      className="btn btn-ghost"
-                      type="button"
-                      onClick={node.type === 'FOLDER' ? () => handleOpenFolder(node.path) : undefined}
-                      disabled={node.type !== 'FOLDER'}
-                    >
-                      Открыть
-                    </button>
-                    <button className="btn btn-ghost" type="button">
-                      Скачать
-                    </button>
-                  </div>
-                </td>
+            {isLoading && (
+              <tr>
+                <td colSpan={5}>Загрузка...</td>
               </tr>
-            ))}
+            )}
+            {!isLoading &&
+              visibleNodes.map((node) => (
+                <tr key={node.path}>
+                  <td>
+                    <div className="node-name">
+                      <span className={`node-icon ${node.type === 'FOLDER' ? 'folder' : 'file'}`} />
+                      <div>
+                        {node.type === 'FOLDER' ? (
+                          <button
+                            type="button"
+                            className="node-link"
+                            onClick={() => handleOpenFolder(node.path)}
+                          >
+                            {getNodeName(node)}
+                          </button>
+                        ) : (
+                          <strong>{getNodeName(node)}</strong>
+                        )}
+                        <div className="muted-text">{node.path}</div>
+                      </div>
+                  </td>
+                  <td>{node.type === 'FOLDER' ? 'Папка' : node.contentType ?? '—'}</td>
+                  <td>
+                    {node.type === 'FOLDER'
+                      ? node.itemsCount != null
+                        ? `${node.itemsCount} элементов`
+                        : '—'
+                      : formatSize(node.size)}
+                  </td>
+                  <td>{node.lastModified ? new Date(node.lastModified).toLocaleString('ru-RU') : '—'}</td>
+                  <td>
+                    <div className="table-actions">
+                      <button
+                        className="btn btn-ghost"
+                        type="button"
+                        onClick={node.type === 'FOLDER' ? () => handleOpenFolder(node.path) : undefined}
+                        disabled={node.type !== 'FOLDER'}
+                      >
+                        Открыть
+                      </button>
+                      <button className="btn btn-ghost" type="button">
+                        Скачать
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            {!isLoading && !visibleNodes.length && (
+              <tr>
+                <td colSpan={5}>Нет файлов для отображения.</td>
+              </tr>
+            )}
           </tbody>
         </table>
       </section>

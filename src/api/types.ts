@@ -86,3 +86,38 @@ export interface SubscriptionPlan {
   price: string;
   features: string[];
 }
+
+export type StorageType = 'IMAGES' | 'VIDEOS';
+
+export type StorageNodeType = 'FILE' | 'FOLDER';
+
+export interface StorageNodeDto {
+  type: StorageNodeType;
+  path: string;
+  name?: string;
+  itemsCount?: number;
+  size?: number;
+  contentType?: string;
+  lastModified?: string;
+}
+
+export interface ListNodesResponse {
+  nodes: StorageNodeDto[];
+  continuationToken?: string;
+}
+
+export interface CreateFolderRequest {
+  path: string;
+}
+
+export interface CreateFolderResponse {
+  path: string;
+}
+
+export interface UploadFolderMetaRequest {
+  basePath: string;
+}
+
+export interface UploadResultDto {
+  nodes?: StorageNodeDto[];
+}

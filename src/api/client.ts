@@ -3,8 +3,14 @@ import {
   AiGenerateRequest,
   AiPostDto,
   AutoPostRequest,
+  CreateFolderRequest,
+  CreateFolderResponse,
+  ListNodesResponse,
   LoginRequest,
   RegisterRequest,
+  StorageType,
+  UploadFolderMetaRequest,
+  UploadResultDto,
   VkAccount,
   VkGroup,
 } from './types';
@@ -168,5 +174,42 @@ export const logsApi = {
       console.warn('Mock log records', error);
       return mockLogs;
     }
+  },
+};
+
+export const storageApi = {
+  async listNodes(storage: StorageType, path?: string): Promise<ListNodesResponse> {
+    const { data } = await api.get<ListNodesResponse>(`/storage/${storage}/nodes`, {
+      params: { path: path || undefined },
+    });
+    return data;
+  },
+  async createFolder(storage: StorageType, payload: CreateFolderRequest): Promise<CreateFolderResponse> {
+    const { data } = await api.post<CreateFolderResponse>(`/storage/${storage}/folder`, payload);
+    return data;
+  },
+  async upload(
+    storage: StorageType,
+    meta: UploadFolderMetaRequest,
+    files: File[],
+    relativePaths?: string[]
+  ): Promise<UploadResultDto> {
+    const formData = new FormData();
+    formData.append(
+      'meta',
+      new Blob([JSON.stringify(meta)], {
+        type: 'application/json',
+      })
+    );
+    if (relativePaths?.length) {
+      relativePaths.forEach((path) => formData.append('relativePaths', path));
+    }
+    files.forEach((file) => formData.append('files', file));
+    const { data } = await api.post<UploadResultDto>(`/storage/${storage}/upload`, formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+    return data;
   },
 };
