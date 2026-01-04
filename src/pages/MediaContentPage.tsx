@@ -139,6 +139,7 @@ export default function MediaContentPage() {
     const size = nodes.reduce((acc, item) => acc + (item.size ?? 0), 0);
     return { folders, files, size };
   }, [nodes]);
+  const parentPath = useMemo(() => getParentPath(currentPath), [currentPath]);
 
   useEffect(() => {
     if (folderInputRef.current) {
@@ -230,19 +231,31 @@ export default function MediaContentPage() {
       <div className="media-grid">
         <section className="card">
           <div className="section">
-            <div className="breadcrumb">
-              {breadcrumbs.map((crumb, index) => (
-                <span key={`${crumb.label}-${crumb.path}`} className="breadcrumb-item">
-                  <button
-                    className="breadcrumb-button"
-                    type="button"
-                    onClick={() => handleOpenFolder(crumb.path)}
-                  >
-                    {crumb.label}
-                  </button>
-                  {index < breadcrumbs.length - 1 && <span className="breadcrumb-separator">/</span>}
-                </span>
-              ))}
+                        <div className="breadcrumb-row">
+              <div className="breadcrumb">
+                {breadcrumbs.map((crumb, index) => (
+                  <span key={`${crumb.label}-${crumb.path}`} className="breadcrumb-item">
+                    <button
+                      className="breadcrumb-button"
+                      type="button"
+                      onClick={() => handleOpenFolder(crumb.path)}
+                    >
+                      {crumb.label}
+                    </button>
+                    {index < breadcrumbs.length - 1 && <span className="breadcrumb-separator">/</span>}
+                  </span>
+                ))}
+              </div>
+              <div className="breadcrumb-actions">
+                <button
+                  className="btn btn-ghost"
+                  type="button"
+                  onClick={() => handleOpenFolder(parentPath)}
+                  disabled={!currentPath}
+                >
+                  На уровень выше
+                </button>
+              </div>
             </div>
             <p className="muted-text">{storageDescriptions[storage]}</p>
           </div>
