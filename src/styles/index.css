@@ -95,6 +95,12 @@ h2 {
   color: #475569;
 }
 
+.page-subtitle {
+  margin: 6px 0 0;
+  color: #64748b;
+  font-size: 14px;
+}
+
 .tag {
   display: inline-flex;
   align-items: center;
@@ -239,4 +245,147 @@ h2 {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
   gap: 14px;
+}
+
+.media-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.storage-toggle {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.storage-tab {
+  border: 1px solid #e2e8f0;
+  background: #ffffff;
+  border-radius: 12px;
+  padding: 10px 14px;
+  font-weight: 600;
+  cursor: pointer;
+  color: #0f172a;
+}
+
+.storage-tab.active {
+  border-color: #2563eb;
+  background: #eff6ff;
+  color: #1d4ed8;
+}
+
+.breadcrumb {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  font-weight: 600;
+  color: #1e293b;
+}
+
+.breadcrumb-item {
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.breadcrumb-separator {
+  color: #94a3b8;
+}
+
+.muted-text {
+  color: #64748b;
+  font-size: 14px;
+}
+
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.upload-panel {
+  display: grid;
+  gap: 12px;
+  border: 1px dashed #cbd5e1;
+  border-radius: 14px;
+  padding: 16px;
+  background: #f8fafc;
+}
+
+.dropzone {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px;
+  border-radius: 12px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  color: #475569;
+}
+
+.summary-grid {
+  display: grid;
+  gap: 10px;
+  margin: 12px 0 16px;
+}
+
+.summary-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 10px 12px;
+  background: #f8fafc;
+}
+
+.summary-label {
+  color: #64748b;
+  font-size: 13px;
+}
+
+.muted-list {
+  margin: 8px 0 0;
+  padding-left: 18px;
+  color: #64748b;
+  font-size: 14px;
+}
+
+.node-name {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.node-icon {
+  width: 14px;
+  height: 14px;
+  margin-top: 4px;
+  border-radius: 4px;
+  background: #94a3b8;
+}
+
+.node-icon.folder {
+  background: #fbbf24;
+}
+
+.node-icon.file {
+  background: #60a5fa;
+}
+
+.table-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+@media (max-width: 960px) {
+  .media-grid {
+    grid-template-columns: 1fr;
+  }
 }

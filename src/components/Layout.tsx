@@ -6,6 +6,7 @@ const navItems = [
   { to: '/auth', label: 'Логин / Регистрация' },
   { to: '/accounts', label: 'VK аккаунты' },
   { to: '/auto-posting', label: 'Автопостинг' },
+  { to: '/media', label: 'Медиа контент' },
   { to: '/ai', label: 'AI контент' },
   { to: '/logs', label: 'Логи и биллинг' },
 ];

@@ -6,6 +6,7 @@ import AccountsPage from './pages/AccountsPage';
 import AutoPostingPage from './pages/AutoPostingPage';
 import AiPage from './pages/AiPage';
 import LogsPage from './pages/LogsPage';
+import MediaContentPage from './pages/MediaContentPage';
 
 export default function App() {
   return (
@@ -15,6 +16,7 @@ export default function App() {
         <Route path="/auth" element={<AuthPage />} />
         <Route path="/accounts" element={<AccountsPage />} />
         <Route path="/auto-posting" element={<AutoPostingPage />} />
+		<Route path="/media" element={<MediaContentPage />} />
         <Route path="/ai" element={<AiPage />} />
         <Route path="/logs" element={<LogsPage />} />
         <Route path="*" element={<Navigate to="/" />} />
