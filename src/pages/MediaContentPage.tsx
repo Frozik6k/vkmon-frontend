@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
 type StorageType = 'IMAGES' | 'VIDEOS';
 
@@ -98,14 +98,71 @@ const formatSize = (size?: number) => {
 
 export default function MediaContentPage() {
   const [storage, setStorage] = useState<StorageType>('IMAGES');
+  const [storageNodes, setStorageNodes] = useState<Record<StorageType, StorageNode[]>>(mockNodes);
+  const filesInputRef = useRef<HTMLInputElement>(null);
+  const folderInputRef = useRef<HTMLInputElement>(null);
 
-  const nodes = useMemo(() => mockNodes[storage], [storage]);
+  const nodes = useMemo(() => storageNodes[storage], [storage, storageNodes]);
   const totals = useMemo(() => {
     const folders = nodes.filter((item) => item.type === 'FOLDER').length;
     const files = nodes.filter((item) => item.type === 'FILE').length;
     const size = nodes.reduce((acc, item) => acc + (item.size ?? 0), 0);
     return { folders, files, size };
   }, [nodes]);
+
+  useEffect(() => {
+    if (folderInputRef.current) {
+      folderInputRef.current.setAttribute('webkitdirectory', '');
+      folderInputRef.current.setAttribute('directory', '');
+    }
+  }, []);
+
+  const appendNodes = (newNodes: StorageNode[]) => {
+    setStorageNodes((prev) => ({
+      ...prev,
+      [storage]: [...newNodes, ...prev[storage]],
+    }));
+  };
+
+  const handleCreateFolder = () => {
+    const name = window.prompt('Введите название папки');
+    if (!name) return;
+    const trimmedName = name.trim();
+    if (!trimmedName) return;
+    appendNodes([
+      {
+        type: 'FOLDER',
+        name: trimmedName,
+        path: `${trimmedName.replace(/\s+/g, '-').toLowerCase()}/`,
+        itemsCount: 0,
+        lastModified: new Date().toISOString(),
+      },
+    ]);
+  };
+
+  const handleFilesSelected = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(event.target.files ?? []);
+    if (!files.length) return;
+    appendNodes(
+      files.map((file) => ({
+        type: 'FILE',
+        name: file.name,
+        path: file.webkitRelativePath || file.name,
+        size: file.size,
+        contentType: file.type || 'application/octet-stream',
+        lastModified: file.lastModified ? new Date(file.lastModified).toISOString() : undefined,
+      }))
+    );
+    event.target.value = '';
+  };
+
+  const openFilesDialog = () => {
+    filesInputRef.current?.click();
+  };
+
+  const openFolderDialog = () => {
+    folderInputRef.current?.click();
+  };
 
   return (
     <div>
@@ -147,13 +204,13 @@ export default function MediaContentPage() {
           </div>
 
           <div className="toolbar">
-            <button className="btn btn-primary" type="button">
+            <button className="btn btn-primary" type="button" onClick={handleCreateFolder}>
               Создать папку
             </button>
-            <button className="btn btn-ghost" type="button">
+            <button className="btn btn-ghost" type="button" onClick={openFilesDialog}>
               Загрузить файлы
             </button>
-            <button className="btn btn-ghost" type="button">
+            <button className="btn btn-ghost" type="button" onClick={openFolderDialog}>
               Загрузить папку
             </button>
           </div>
@@ -167,11 +224,25 @@ export default function MediaContentPage() {
             </div>
             <div className="dropzone">
               <span>Перетащите файлы сюда или выберите на компьютере</span>
-              <button className="btn btn-primary" type="button">
+              <button className="btn btn-primary" type="button" onClick={openFilesDialog}>
                 Выбрать файлы/папку
               </button>
             </div>
           </div>
+		  <input
+            ref={filesInputRef}
+            className="visually-hidden"
+            type="file"
+            multiple
+            onChange={handleFilesSelected}
+          />
+          <input
+            ref={folderInputRef}
+            className="visually-hidden"
+            type="file"
+            multiple
+            onChange={handleFilesSelected}
+          />
         </section>
 
         <section className="card">
