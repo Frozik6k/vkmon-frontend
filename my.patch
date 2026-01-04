@@ -1,99 +1,322 @@
-diff --git a/src/pages/AccountsPage.tsx b/src/pages/AccountsPage.tsx
-index 5889678e906e4fa0fa657a80a84ad2df9c236e07..fbbcb8698e2e97d165c590081c59f4b5d2593fca 100644
---- a/src/pages/AccountsPage.tsx
-+++ b/src/pages/AccountsPage.tsx
-@@ -86,71 +86,92 @@ export default function AccountsPage() {
+diff --git a/src/pages/MediaContentPage.tsx b/src/pages/MediaContentPage.tsx
+index 2424cf64800261fc84ba10ddfbc99d20535f29e0..41fff8549ad917115dfcde407be5a67b1d550695 100644
+--- a/src/pages/MediaContentPage.tsx
++++ b/src/pages/MediaContentPage.tsx
+@@ -77,91 +77,144 @@ const mockNodes: Record<StorageType, StorageNode[]> = {
+ const breadcrumbs: Record<StorageType, string[]> = {
+   IMAGES: ['Медиа контент', 'Изображения'],
+   VIDEOS: ['Медиа контент', 'Видео'],
+ };
+ 
+ const storageDescriptions: Record<StorageType, string> = {
+   IMAGES: 'Хранилище изображений в S3 (префикс /images).',
+   VIDEOS: 'Хранилище видео в S3 (префикс /videos).',
+ };
+ 
+ const formatSize = (size?: number) => {
+   if (!size) return '—';
+   const units = ['B', 'KB', 'MB', 'GB'];
+   let index = 0;
+   let value = size;
+   while (value > 1024 && index < units.length - 1) {
+     value /= 1024;
+     index += 1;
+   }
+   return `${value.toFixed(value >= 10 ? 0 : 1)} ${units[index]}`;
+ };
+ 
+ export default function MediaContentPage() {
+   const [storage, setStorage] = useState<StorageType>('IMAGES');
+   const [storageNodes, setStorageNodes] = useState<Record<StorageType, StorageNode[]>>(mockNodes);
++  const [currentPath, setCurrentPath] = useState<Record<StorageType, string>>({
++    IMAGES: '',
++    VIDEOS: '',
++  });
+   const filesInputRef = useRef<HTMLInputElement>(null);
+   const folderInputRef = useRef<HTMLInputElement>(null);
+ 
+   const nodes = useMemo(() => storageNodes[storage], [storage, storageNodes]);
++  const pathSegments = useMemo(
++    () => currentPath[storage].split('/').filter(Boolean),
++    [currentPath, storage]
++  );
++  const breadcrumbItems = useMemo(
++    () => [...breadcrumbs[storage], ...pathSegments],
++    [pathSegments, storage]
++  );
++  const visibleNodes = useMemo(() => {
++    const prefix = currentPath[storage];
++    return nodes
++      .filter((node) => {
++        if (!node.path.startsWith(prefix)) return false;
++        const remainder = node.path.slice(prefix.length);
++        if (!remainder) return false;
++        const segments = remainder.split('/').filter(Boolean);
++        return segments.length === 1;
++      })
++      .sort((left, right) => {
++        if (left.type !== right.type) {
++          return left.type === 'FOLDER' ? -1 : 1;
++        }
++        return left.name.localeCompare(right.name);
++      });
++  }, [currentPath, nodes, storage]);
+   const totals = useMemo(() => {
+     const folders = nodes.filter((item) => item.type === 'FOLDER').length;
+     const files = nodes.filter((item) => item.type === 'FILE').length;
+     const size = nodes.reduce((acc, item) => acc + (item.size ?? 0), 0);
+     return { folders, files, size };
+   }, [nodes]);
+ 
+   useEffect(() => {
+     if (folderInputRef.current) {
+       folderInputRef.current.setAttribute('webkitdirectory', '');
+       folderInputRef.current.setAttribute('directory', '');
      }
-     syncGroupsMutation.mutate({ accountId: selectedId, groupIds: selectedGroupIds });
+   }, []);
+ 
+   const appendNodes = (newNodes: StorageNode[]) => {
+     setStorageNodes((prev) => ({
+       ...prev,
+       [storage]: [...newNodes, ...prev[storage]],
+     }));
    };
  
-   const handleStartEditingGroups = async () => {
-     if (!selectedId) {
-       return;
-     }
-     setIsEditingGroups(true);
-     await refetchAvailableGroups();
+   const handleCreateFolder = () => {
+     const name = window.prompt('Введите название папки');
+     if (!name) return;
+     const trimmedName = name.trim();
+     if (!trimmedName) return;
+     appendNodes([
+       {
+         type: 'FOLDER',
+         name: trimmedName,
+         path: `${trimmedName.replace(/\s+/g, '-').toLowerCase()}/`,
+         itemsCount: 0,
+         lastModified: new Date().toISOString(),
+       },
+     ]);
+   };
+ 
++  const handleOpenFolder = (path: string) => {
++    setCurrentPath((prev) => ({
++      ...prev,
++      [storage]: path,
++    }));
++  };
++
++  const handleBreadcrumbClick = (index: number) => {
++    const baseLength = breadcrumbs[storage].length;
++    if (index < baseLength) {
++      setCurrentPath((prev) => ({
++        ...prev,
++        [storage]: '',
++      }));
++      return;
++    }
++    const targetSegments = pathSegments.slice(0, index - baseLength + 1);
++    const nextPath = targetSegments.length ? `${targetSegments.join('/')}/` : '';
++    setCurrentPath((prev) => ({
++      ...prev,
++      [storage]: nextPath,
++    }));
++  };
++
+   const handleFilesSelected = (event: React.ChangeEvent<HTMLInputElement>) => {
+     const files = Array.from(event.target.files ?? []);
+     if (!files.length) return;
+     appendNodes(
+       files.map((file) => ({
+         type: 'FILE',
+         name: file.name,
+         path: file.webkitRelativePath || file.name,
+         size: file.size,
+         contentType: file.type || 'application/octet-stream',
+         lastModified: file.lastModified ? new Date(file.lastModified).toISOString() : undefined,
+       }))
+     );
+     event.target.value = '';
+   };
+ 
+   const openFilesDialog = () => {
+     filesInputRef.current?.click();
+   };
+ 
+   const openFolderDialog = () => {
+     folderInputRef.current?.click();
    };
  
    return (
-     <div>
-       <div className="page-header">
-         <h2>VK аккаунты</h2>
-         <div className="tag">/vk-accounts + /vk-accounts/{'{id}'}/groups</div>
+@@ -171,87 +224,78 @@ export default function MediaContentPage() {
+           <h2>Медиа контент</h2>
+           <p className="page-subtitle">
+             Управление файлами и папками в S3: раздельные хранилища для изображений и видео.
+           </p>
+         </div>
+         <span className="tag">API: /storage/nodes · /storage/folders · /storage/uploads</span>
        </div>
  
-       <div className="grid-two">
-         <div className="card">
-           <h3>Список</h3>
-           <table className="table">
-             <thead>
-               <tr>
-+                <th></th>
-                 <th>Alias</th>
-                 <th>Статус</th>
-                 <th>Группы</th>
-                 <th></th>
-               </tr>
-             </thead>
-             <tbody>
-               {accounts.map((account) => (
--                <tr key={account.id}>
-+                <tr
-+                  key={account.id}
-+                  className={selectedId === account.id ? 'table-row-selected' : undefined}
-+                  onClick={() => setSelectedId(account.id)}
-+                  style={{ cursor: 'pointer' }}
-+                >
-+                  <td>
-+                    <input
-+                      type="radio"
-+                      name="selected-account"
-+                      checked={selectedId === account.id}
-+                      onChange={() => setSelectedId(account.id)}
-+                      onClick={(event) => event.stopPropagation()}
-+                    />
-+                  </td>
-                   <td>
-                     <div style={{ fontWeight: 700 }}>{account.alias}</div>
-                     <div style={{ color: '#475569', fontSize: 12 }}>{account.username}</div>
-                   </td>
-                   <td>
-                     <span className={`status-pill status-${account.status.toLowerCase()}`}>
-                       {account.status}
-                     </span>
-                   </td>
-                   <td>{account.groupsCount}</td>
-                   <td>
--                    <button className="btn btn-ghost" onClick={() => setSelectedId(account.id)}>
-+                    <button
-+                      className="btn btn-ghost"
-+                      onClick={(event) => {
-+                        event.stopPropagation();
-+                        setSelectedId(account.id);
-+                      }}
-+                    >
-                       Подробнее
-                     </button>
-                   </td>
-                 </tr>
-               ))}
-             </tbody>
-           </table>
-         </div>
+       <div className="storage-toggle">
+         {(['IMAGES', 'VIDEOS'] as StorageType[]).map((item) => (
+           <button
+             key={item}
+             type="button"
+             className={`storage-tab${storage === item ? ' active' : ''}`}
+             onClick={() => setStorage(item)}
+           >
+             {item === 'IMAGES' ? 'Хранилище изображений' : 'Хранилище видео'}
+           </button>
+         ))}
+       </div>
  
-         <div className="card">
-           <h3>Добавить аккаунт</h3>
-           <p style={{ marginTop: 0, color: '#475569' }}>CreateVkAccountRequest: alias + token</p>
-           <form className="form-grid" onSubmit={handleSubmit}>
-             <label>
-               Название (alias)
-               <input className="input" name="alias" placeholder="Рабочий аккаунт" required />
-             </label>
-             <label>
-               Токен VK
-               <input className="input" name="token" placeholder="vk1.a...." required />
-             </label>
-             <button className="btn btn-primary" type="submit" disabled={mutation.isPending}>
-               {mutation.isPending ? 'Создаем…' : 'Создать'}
+       <div className="media-grid">
+         <section className="card">
+           <div className="section">
+             <div className="breadcrumb">
+-              {breadcrumbs[storage].map((crumb, index) => (
+-                <span key={crumb} className="breadcrumb-item">
+-                  {crumb}
+-                  {index < breadcrumbs[storage].length - 1 && <span className="breadcrumb-separator">/</span>}
++              {breadcrumbItems.map((crumb, index) => (
++                <span key={`${crumb}-${index}`} className="breadcrumb-item">
++                  <button
++                    className="breadcrumb-link"
++                    type="button"
++                    onClick={() => handleBreadcrumbClick(index)}
++                  >
++                    {crumb}
++                  </button>
++                  {index < breadcrumbItems.length - 1 && <span className="breadcrumb-separator">/</span>}
+                 </span>
+               ))}
+             </div>
+             <p className="muted-text">{storageDescriptions[storage]}</p>
+           </div>
+ 
+           <div className="toolbar">
+             <button className="btn btn-primary" type="button" onClick={handleCreateFolder}>
+               Создать папку
              </button>
-           </form>
+             <button className="btn btn-ghost" type="button" onClick={openFilesDialog}>
+               Загрузить файлы
+             </button>
+             <button className="btn btn-ghost" type="button" onClick={openFolderDialog}>
+               Загрузить папку
+             </button>
+           </div>
+-
+-          <div className="upload-panel">
+-            <div>
+-              <h3>Загрузка контента</h3>
+-              <p className="muted-text">
+-                Поддерживается загрузка отдельных файлов или целых папок. При выборе папки можно сохранить структуру.
+-              </p>
+-            </div>
+-            <div className="dropzone">
+-              <span>Перетащите файлы сюда или выберите на компьютере</span>
+-              <button className="btn btn-primary" type="button" onClick={openFilesDialog}>
+-                Выбрать файлы/папку
+-              </button>
+-            </div>
+-          </div>
+-		  <input
++          <input
+             ref={filesInputRef}
+             className="visually-hidden"
+             type="file"
+             multiple
+             onChange={handleFilesSelected}
+           />
+           <input
+             ref={folderInputRef}
+             className="visually-hidden"
+             type="file"
+             multiple
+             onChange={handleFilesSelected}
+           />
+         </section>
+ 
+         <section className="card">
+           <h3>Сводка хранилища</h3>
+           <div className="summary-grid">
+             <div className="summary-item">
+               <span className="summary-label">Папки</span>
+               <strong>{totals.folders}</strong>
+             </div>
+             <div className="summary-item">
+               <span className="summary-label">Файлы</span>
+               <strong>{totals.files}</strong>
+@@ -269,57 +313,67 @@ export default function MediaContentPage() {
+               <li>SKIP — пропуск при совпадении ключа.</li>
+             </ul>
+           </div>
+           <div className="section">
+             <h4>Структура данных</h4>
+             <p className="muted-text">
+               Узлы возвращаются как StorageNodeDto: тип FILE/FOLDER, путь, размер, контент-тайп и метаданные.
+             </p>
+           </div>
+         </section>
+       </div>
+ 
+       <section className="card">
+         <h3>Список файлов и папок</h3>
+         <table className="table">
+           <thead>
+             <tr>
+               <th>Имя</th>
+               <th>Тип</th>
+               <th>Размер / элементы</th>
+               <th>Обновлено</th>
+               <th>Действия</th>
+             </tr>
+           </thead>
+           <tbody>
+-            {nodes.map((node) => (
++            {visibleNodes.map((node) => (
+               <tr key={node.path}>
+                 <td>
+                   <div className="node-name">
+                     <span className={`node-icon ${node.type === 'FOLDER' ? 'folder' : 'file'}`} />
+                     <div>
+                       <strong>{node.name}</strong>
+                       <div className="muted-text">{node.path}</div>
+                     </div>
+                   </div>
+                 </td>
+                 <td>{node.type === 'FOLDER' ? 'Папка' : node.contentType}</td>
+                 <td>{node.type === 'FOLDER' ? `${node.itemsCount ?? 0} элементов` : formatSize(node.size)}</td>
+                 <td>{node.lastModified ? new Date(node.lastModified).toLocaleString('ru-RU') : '—'}</td>
+                 <td>
+                   <div className="table-actions">
+-                    <button className="btn btn-ghost" type="button">
+-                      Открыть
+-                    </button>
++                    {node.type === 'FOLDER' ? (
++                      <button
++                        className="btn btn-ghost"
++                        type="button"
++                        onClick={() => handleOpenFolder(node.path)}
++                      >
++                        Открыть
++                      </button>
++                    ) : (
++                      <button className="btn btn-ghost" type="button">
++                        Открыть
++                      </button>
++                    )}
+                     <button className="btn btn-ghost" type="button">
+                       Скачать
+                     </button>
+                   </div>
+                 </td>
+               </tr>
+             ))}
+           </tbody>
+         </table>
+       </section>
+     </div>
+   );
+-}
+\ No newline at end of file
++}
