@@ -273,7 +273,7 @@ export default function MediaContentPage() {
 
       <section className="card">
         <h3>Список файлов и папок</h3>
-		{errorMessage && <div className="alert alert-error">{errorMessage}</div>}
+        {errorMessage && <div className="alert alert-error">{errorMessage}</div>}
         <table className="table">
           <thead>
             <tr>
@@ -310,6 +310,7 @@ export default function MediaContentPage() {
                         )}
                         <div className="muted-text">{node.path}</div>
                       </div>
+                    </div>					  
                   </td>
                   <td>{node.type === 'FOLDER' ? 'Папка' : node.contentType ?? '—'}</td>
                   <td>
